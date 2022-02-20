@@ -5,11 +5,11 @@ import json
 import shutil
 from tqdm import tqdm
 
-# Assumes root directory is text2mesh/
-captions_path = 'dataset/captions.tablechair.csv'
-all_models_path = 'dataset/all_models/'
+# Assumes root directory is text2mesh/dataset/
+captions_path = 'captions.tablechair.csv'
+all_models_path = 'all_models/'
 
-annotated_models_path = 'dataset/annotated_models/'
+annotated_models_path = 'annotated_models/'
 if not os.path.isdir(annotated_models_path):
     os.mkdir(annotated_models_path)
 

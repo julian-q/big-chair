@@ -1,3 +1,4 @@
+# Assumes root directory is text2mesh/dataset/
 mkdir all_models
 cd all_models
 # Download tables
