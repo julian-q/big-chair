@@ -5,13 +5,10 @@ import json
 import shutil
 from tqdm import tqdm
 
-# Assumes root directory is text2mesh/dataset/
-# and download_dataset.sh has been executed
+# This script is run by download_dataset.sh
 captions_path = 'captions.tablechair.csv'
 unannotated_models_path = 'unannotated_models/'
 annotated_models_path = 'annotated_models/'
-if not os.path.isdir(annotated_models_path):
-    os.mkdir(annotated_models_path)
 
 table_synset_id = str(wn.synset('table.n.01').offset()).zfill(8)
 chair_synset_id = str(wn.synset('chair.n.01').offset()).zfill(8)
@@ -23,7 +20,7 @@ with open(captions_path, 'r') as csv_file:
         category    = row['category']
         synset_id   = row['topLevelSynsetId']
         model_id    = row['modelId']
-        description = row['description']
+        description = row['description'].lower()
 
         if model_id in model2desc:
             model2desc[model_id].append(description)

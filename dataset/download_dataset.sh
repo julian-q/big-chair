@@ -10,3 +10,6 @@ curl -O http://shapenet.cs.stanford.edu/shapenet/obj-zip/ShapeNetCore.v1/0300162
 unzip 03001627.zip
 rm 03001627.zip
 cd ..
+# Move the models with annotations into a separate directory
+mkdir annotated_models
+python3 retrieve_annotated_models.py
