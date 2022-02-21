@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import math
 
-class ZERON_GCN(Module):
+class ZERON_GCN(nn.Module):
 	def __init__(self, in_features, out_features, bias=True):
 		super(ZERON_GCN, self).__init__()
 		self.in_features = in_features
