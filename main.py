@@ -10,7 +10,7 @@ BATCH_SIZE = 100
 EPOCH = 32
 
 models_path = 'dataset/some_annotated_models/'
-annotations_path = 'dataset/annotated_models/annotations.json'
+annotations_path = 'dataset/annotations.json'
 dataset = AnnotatedMeshDataset(models_path, annotations_path)
 train_dataloader = DataLoader(dataset, batch_size=BATCH_SIZE)
 

@@ -255,6 +255,7 @@ def build_model(state_dict: dict):
 class TextEncoder(nn.Module):
 
     def __init__(self, vocab_size, embedding_dim, hidden_dim, output_dim):
+        super().__init__()
         self.embedding_dim = embedding_dim
         self.hidden_dim = hidden_dim
         self.output_dim = output_dim
