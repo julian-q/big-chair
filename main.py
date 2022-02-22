@@ -1,3 +1,4 @@
+# based on https://github.com/openai/CLIP/issues/83
 import torch
 from torch import nn
 from torch import optim
