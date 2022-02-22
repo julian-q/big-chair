@@ -245,7 +245,7 @@ def build_model(state_dict: dict):
     return model.eval()
 
 ## baseline text encoder
-class TextEncoder(nn.module):
+class TextEncoder(nn.Module):
 
     def __init__(self, is_training, vocab_size, embedding_size=256, ):
         self.embedding_size = embedding_size
