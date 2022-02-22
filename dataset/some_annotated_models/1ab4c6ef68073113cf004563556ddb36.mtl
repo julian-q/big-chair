@@ -1,0 +1,66 @@
+# Blender MTL File: 'manage.blend'
+# Material Count: 6
+
+newmtl material_0_3_8
+Ns 96.078443
+Ka 1.000000 1.000000 1.000000
+Kd 0.640000 0.640000 0.640000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 0.000000
+d 1.000000
+illum 2
+map_Kd /Users/julianquevedo/code/text2mesh/dataset/annotated_models/Chair/1ab4c6ef68073113cf004563556ddb36/images/texture0.jpg
+
+newmtl material_1_24
+Ns 96.078443
+Ka 1.000000 1.000000 1.000000
+Kd 0.800000 0.800000 0.800000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 0.000000
+d 1.000000
+illum 2
+
+newmtl material_2_4_8
+Ns 96.078443
+Ka 1.000000 1.000000 1.000000
+Kd 0.640000 0.640000 0.640000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 0.000000
+d 1.000000
+illum 2
+map_Kd /Users/julianquevedo/code/text2mesh/dataset/annotated_models/Chair/1ab4c6ef68073113cf004563556ddb36/images/texture1.jpg
+
+newmtl material_3_1_8
+Ns 96.078443
+Ka 1.000000 1.000000 1.000000
+Kd 0.640000 0.640000 0.640000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 0.000000
+d 1.000000
+illum 2
+map_Kd /Users/julianquevedo/code/text2mesh/dataset/annotated_models/Chair/1ab4c6ef68073113cf004563556ddb36/images/texture2.jpg
+
+newmtl material_4_2_8
+Ns 96.078443
+Ka 1.000000 1.000000 1.000000
+Kd 0.640000 0.640000 0.640000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 0.000000
+d 1.000000
+illum 2
+map_Kd /Users/julianquevedo/code/text2mesh/dataset/annotated_models/Chair/1ab4c6ef68073113cf004563556ddb36/images/texture3.jpg
+
+newmtl material_5_24
+Ns 96.078443
+Ka 1.000000 1.000000 1.000000
+Kd 0.445490 0.448627 0.332549
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 0.000000
+d 1.000000
+illum 2

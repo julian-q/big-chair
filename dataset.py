@@ -6,8 +6,9 @@ from utils import load_initial
 class AnnotatedMeshDataset(Dataset):
     def __init__(self, models_path, annotations_path):
         self.models_path = models_path
-        self.model2desc = json.load(annotations_path)
-        self.max_desc_length = max(max(len(descriptions)) for descriptions in self.model2desc.values())
+        with open(annotations_path, 'r') as annotations_file:
+            self.model2desc = json.load(annotations_file)
+        self.max_desc_length = max([max([len(desc) for desc in descriptions]) for descriptions in self.model2desc.values()])
 
     def __len__(self):
         return len(os.listdir(self.models_path)) // 2

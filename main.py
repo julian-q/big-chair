@@ -9,7 +9,7 @@ from clip import tokenize
 BATCH_SIZE = 100
 EPOCH = 32
 
-models_path = '../text2mesh_preprocess/data/managable_objects/Chair/'
+models_path = 'dataset/some_annotated_models/'
 annotations_path = 'dataset/annotated_models/annotations.json'
 dataset = AnnotatedMeshDataset(models_path, annotations_path)
 train_dataloader = DataLoader(dataset, batch_size=BATCH_SIZE)
@@ -22,7 +22,7 @@ def convert_models_to_fp32(model):
 
 device = "cuda:0" if torch.cuda.is_available() else "cpu" # If using GPU then use mixed precision training.
 
-model = CLIP(embed_dim=512, context_length=dataset.max_desc_length + 2, vocab_size=49408, 
+model = CLIP(joint_embed_dim=512, context_length=dataset.max_desc_length + 2, vocab_size=49408, 
              transformer_width=512, transformer_heads=8, transformer_layers=12)
   
 if device == "cpu":
@@ -32,7 +32,7 @@ else:
 
 loss_img = nn.CrossEntropyLoss()
 loss_txt = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=5e-5,betas=(0.9,0.98),eps=1e-6,weight_decay=0.2) #Params used from paper, the lr is smaller, more safe for fine tuning to new dataset
+optimizer = optim.Adam(model.parameters(), lr=5e-5,betas=(0.9,0.98),eps=1e-6,weight_decay=0.2) # Params used from paper, the lr is smaller, more safe for fine tuning to new dataset
 
 for epoch in range(EPOCH):
   for batch in train_dataloader:

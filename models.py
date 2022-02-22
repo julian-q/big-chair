@@ -119,11 +119,18 @@ class CLIP(nn.Module):
 
         self.mesh_encoder = BatchMeshEncoder(joint_embed_dim)
 
-        self.transformer = TextEncoder(
-            vocab_size=vocab_size,
-            embedding_dim=transformer_width,
-            hidden_dim=transformer_width,
-            output_dim=joint_embed_dim
+        # self.transformer = TextEncoder(
+        #     vocab_size=vocab_size,
+        #     embedding_dim=transformer_width,
+        #     hidden_dim=transformer_width,
+        #     output_dim=joint_embed_dim
+        # )
+
+        self.transformer = Transformer(
+            width=transformer_width,
+            layers=transformer_layers,
+            heads=transformer_heads,
+            attn_mask=self.build_attention_mask()
         )
 
         self.vocab_size = vocab_size
