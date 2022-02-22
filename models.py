@@ -243,3 +243,61 @@ def build_model(state_dict: dict):
     convert_weights(model)
     model.load_state_dict(state_dict)
     return model.eval()
+
+## baseline text encoder
+class TextEncoder(nn.module):
+
+    def __init__(self, is_training, vocab_size, embedding_size=256, ):
+        self.embedding_size = embedding_size
+        self.vocab_size = vocab_size
+
+        self.embeddings = nn.Embedding(num_embeddings=vocab_size, embedding_dim=self.embedding_size, padding_idx=0)
+        self.embeddings.weight.data.uniform_(-1, 1)
+
+        self.rnn = nn.GRU(input_size=256, hidden_size=256, batch_first=True)
+        self.fc1 = nn.Sequential(
+            nn.Linear(256, 256),
+            nn.ReLU()
+        )
+        self.fc2 = nn.Sequential(
+            nn.Linear(256, 128),
+            nn.ReLU()
+        )
+
+
+    def compute_sequence_length(self, input_batch):
+        """
+        input_batch: torch tensor of input indicies
+            size = B x L_max batch, B is batch size, L_max is max caption lengths,
+            Wrapped in a variable,  0 means padding
+            a non-zero positive value indicates a word index
+        return:
+            seq_length_variable: 1d tensor of size B representing the length of each caption in
+            in the current batch
+        """
+        seq_length_variable = torch.gt(input_batch, 0).sum(dim=1)
+        seq_length_variable = seq_length_variable.long()
+        return seq_length_variable
+
+    def forward(self, input_batch):
+        """
+        :param
+        input_batch: torch tensor of input indicies
+            size = B x L_max batch, B is batch size, L_max is max caption lengths,
+            Wrapped in a variable,  0 means padding
+            a non-zero positive value indicates a word index
+        :return:
+        result tensor after RNN and 2 FC layers, size B x O, B is batch size and O is output dim
+        """
+        embedding_batch = self.embeddings(input_batch)
+        seq_length = self.compute_sequence_length(input_batch)
+
+        packed_embedding = torch.nn.utils.rnn.pad_sequence(embedding_batch, seq_length, batch_first=True)
+        out, (last_hidden, last_cell) = self.rnn(packed_embedding)
+        """ out has shape B x L x D """
+
+        repadded_out = nn.utils.rnn.pad_packed_sequence(out, total_length=out.shape[1], batch_first=True)
+        last_out = repadded_out[:][-1][:]
+        res = self.fc1(last_out)
+        res = self.fc2(res)
+        return res
