@@ -41,19 +41,20 @@ def load_initial( obj='386.obj'):
 	# load obj file
 	obj = ObjLoader(obj)
 	labels = np.array(obj.vertices)
-	features = torch.FloatTensor(labels).cuda()
-	faces = torch.LongTensor(np.array(obj.faces) -1).cuda()
+	features = torch.FloatTensor(labels) # .cuda() ?
+	faces = torch.LongTensor(np.array(obj.faces) -1) # .cuda() ?
 
-	points = torch.rand([1000, 3]).cuda() - .5
-	verts = features.clone()
-	tri1 =  torch.index_select(verts, 0,faces[:,0]).unsqueeze(0)
-	tri2 =  torch.index_select(verts, 0,faces[:,1]).unsqueeze(0)
-	tri3 =  torch.index_select(verts, 0,faces[:,2]).unsqueeze(0)
+	# points = torch.rand([1000, 3]) - .5 # .cuda() ?
+	# verts = features.clone()
+	# tri1 =  torch.index_select(verts, 0,faces[:,0]).unsqueeze(0)
+	# tri2 =  torch.index_select(verts, 0,faces[:,1]).unsqueeze(0)
+	# tri3 =  torch.index_select(verts, 0,faces[:,2]).unsqueeze(0)
 
 	# get adjacency matrix infomation
 	adj_info = adj_init(faces)
+	edge_index = (adj_info['adj_orig'] > 0).nonzero().T
 
-	return adj_info, features
+	return adj_info, edge_index, features
 
 
 
@@ -127,7 +128,6 @@ def calc_adj(faces):
 	adj[(v3, v2)] = 1
 
 	return adj
-
 
 
 # loader for GEOMetrics

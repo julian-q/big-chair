@@ -5,6 +5,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn
+from torch_geometric.utils import to_dense_adj
 
 from layers import BatchZERON_GCN, BatchGCNMax
 
@@ -29,13 +30,13 @@ class BatchMeshEncoder(nn.Module):
 		self.h11 = BatchZERON_GCN(300, 300)
 		self.reduce = BatchGCNMax(300,latent_length)
 
-	def resnet( self, features, res):
+	def resnet(self, features, res):
 		temp = features[:,:res.shape[1]]
 		temp = temp + res
 		features = torch.cat((temp,features[:,res.shape[1]:]), dim = 1)
 		return features, features
 
-	def forward(self, positions,  adj, play = False):
+	def forward(self, positions, adj, play = False):
 		# print positions[:5, :5]
 		res = positions
 		features = self.h1(positions, adj, F.elu)
@@ -190,16 +191,18 @@ class CLIP(nn.Module):
         return x
 
     def forward(self, mesh, text):
-        image_features = self.encode_mesh(mesh)
+        positions, adj = mesh
+
+        mesh_features = self.encode_mesh(positions, adj)
         text_features = self.encode_text(text)
 
         # normalized features
-        image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+        mesh_features = mesh_features / mesh_features.norm(dim=-1, keepdim=True)
         text_features = text_features / text_features.norm(dim=-1, keepdim=True)
 
         # cosine similarity as logits
         logit_scale = self.logit_scale.exp()
-        logits_per_image = logit_scale * image_features @ text_features.t()
+        logits_per_image = logit_scale * mesh_features @ text_features.t()
         logits_per_text = logits_per_image.t()
 
         # shape = [global_batch_size, global_batch_size]

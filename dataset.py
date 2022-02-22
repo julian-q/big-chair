@@ -1,4 +1,5 @@
 from torch.utils.data import Dataset
+from torch.nn.functional import pad
 import json
 import os
 from utils import load_initial
@@ -11,13 +12,34 @@ class AnnotatedMeshDataset(Dataset):
         self.max_desc_length = max([max([len(desc) for desc in descriptions]) for descriptions in self.model2desc.values()])
 
     def __len__(self):
-        return len(os.listdir(self.models_path)) // 2
+        return len(os.listdir(self.models_path))
 
     def __getitem__(self, idx):
-        obj_path = os.listdir(self.models_path)[idx * 2 - 1]
+        obj_path = os.listdir(self.models_path)[idx]
         model_id = obj_path.split('.')[0]
+        obj_path = os.path.join(self.models_path, obj_path)
 
-        adj_info, positions = load_initial(obj_path)
+        adj_info, edge_index, positions = load_initial(obj_path)
         model_descriptions = self.model2desc[model_id]
 
-        return (adj_info, positions), model_descriptions
+        data = {
+            'verts': positions,
+            'faces': adj_info['faces'],
+            'adj': adj_info['adj'],
+            'descs': model_descriptions
+        }
+
+        return data
+
+    def collate(self, batch):
+        max_nodes = max([item['verts'].shape[0] for item in batch])
+
+        data = {
+            'verts': [pad(item['verts'], (0, 0, 0, max_nodes - item['verts'].shape[0])) for item in batch],
+            'faces': [item['faces'] for item in batch],
+            'adjs': [pad(item['adj'], (0, max_nodes - item['adj'].shape[1], 0, max_nodes - item['adj'].shape[0])) for item in batch],
+            'descs': [item['descs'] for item in batch]
+        }
+
+        return data
+

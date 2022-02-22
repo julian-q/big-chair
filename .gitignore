@@ -1,3 +1,4 @@
 dataset/unannotated_models/
 dataset/annotated_models/
+dataset/some_annotated_models/
 __pycache__/
