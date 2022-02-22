@@ -71,6 +71,7 @@ class SimpleTokenizer(object):
         for merge in merges:
             vocab.append(''.join(merge))
         vocab.extend(['<|startoftext|>', '<|endoftext|>'])
+        print(vocab)
         self.encoder = dict(zip(vocab, range(len(vocab))))
         self.decoder = {v: k for k, v in self.encoder.items()}
         self.bpe_ranks = dict(zip(merges, range(len(merges))))
