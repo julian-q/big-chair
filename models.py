@@ -105,7 +105,7 @@ class Transformer(nn.Module):
 
 class CLIP(nn.Module):
     def __init__(self,
-                 embed_dim: int,
+                 joint_embed_dim: int,
                  # text
                  context_length: int,
                  vocab_size: int,
@@ -117,13 +117,13 @@ class CLIP(nn.Module):
 
         self.context_length = context_length
 
-        self.mesh_encoder = BatchMeshEncoder(embed_dim)
+        self.mesh_encoder = BatchMeshEncoder(joint_embed_dim)
 
-        self.transformer = Transformer(
-            width=transformer_width,
-            layers=transformer_layers,
-            heads=transformer_heads,
-            attn_mask=self.build_attention_mask()
+        self.transformer = TextEncoder(
+            vocab_size=vocab_size,
+            embedding_dim=transformer_width,
+            hidden_dim=transformer_width,
+            output_dim=joint_embed_dim
         )
 
         self.vocab_size = vocab_size
@@ -131,7 +131,7 @@ class CLIP(nn.Module):
         self.positional_embedding = nn.Parameter(torch.empty(self.context_length, transformer_width))
         self.ln_final = LayerNorm(transformer_width)
 
-        self.text_projection = nn.Parameter(torch.empty(transformer_width, embed_dim))
+        self.text_projection = nn.Parameter(torch.empty(transformer_width, joint_embed_dim))
         self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
 
         self.initialize_parameters()
@@ -224,7 +224,7 @@ def convert_weights(model: nn.Module):
 
 
 def build_model(state_dict: dict):
-    embed_dim = state_dict["text_projection"].shape[1]
+    joint_embed_dim = state_dict["text_projection"].shape[1]
     context_length = state_dict["positional_embedding"].shape[0]
     vocab_size = state_dict["token_embedding.weight"].shape[0]
     transformer_width = state_dict["ln_final.weight"].shape[0]
@@ -232,7 +232,7 @@ def build_model(state_dict: dict):
     transformer_layers = len(set(k.split(".")[2] for k in state_dict if k.startswith(f"transformer.resblocks")))
 
     model = CLIP(
-        embed_dim,
+        joint_embed_dim,
         context_length, vocab_size, transformer_width, transformer_heads, transformer_layers
     )
 
@@ -247,20 +247,22 @@ def build_model(state_dict: dict):
 ## baseline text encoder
 class TextEncoder(nn.Module):
 
-    def __init__(self, is_training, vocab_size, embedding_size=256, ):
-        self.embedding_size = embedding_size
+    def __init__(self, vocab_size, embedding_dim, hidden_dim, output_dim):
+        self.embedding_dim = embedding_dim
+        self.hidden_dim = hidden_dim
+        self.output_dim = output_dim
         self.vocab_size = vocab_size
 
-        self.embeddings = nn.Embedding(num_embeddings=vocab_size, embedding_dim=self.embedding_size, padding_idx=0)
+        self.embeddings = nn.Embedding(num_embeddings=vocab_size, embedding_dim=embedding_dim, padding_idx=0)
         self.embeddings.weight.data.uniform_(-1, 1)
 
-        self.rnn = nn.GRU(input_size=256, hidden_size=256, batch_first=True)
+        self.rnn = nn.GRU(input_size=hidden_dim, hidden_size=hidden_dim, batch_first=True)
         self.fc1 = nn.Sequential(
-            nn.Linear(256, 256),
+            nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU()
         )
         self.fc2 = nn.Sequential(
-            nn.Linear(256, 128),
+            nn.Linear(hidden_dim, output_dim),
             nn.ReLU()
         )
 
@@ -287,7 +289,7 @@ class TextEncoder(nn.Module):
             Wrapped in a variable,  0 means padding
             a non-zero positive value indicates a word index
         :return:
-        result tensor after RNN and 2 FC layers, size B x O, B is batch size and O is output dim
+        result tensor after RNN and 2 FC layers, size B x O, B is batch size and O is output dim (aka joint_embed_dim)
         """
         embedding_batch = self.embeddings(input_batch)
         seq_length = self.compute_sequence_length(input_batch)
