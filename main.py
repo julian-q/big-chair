@@ -9,8 +9,9 @@ from clip import tokenize
 BATCH_SIZE = 100
 EPOCH = 32
 
-dataset_path = '../text2mesh_preprocess/data/managable_objects/Chair/'
-dataset = AnnotatedMeshDataset(dataset_path)
+models_path = '../text2mesh_preprocess/data/managable_objects/Chair/'
+annotations_path = 'dataset/annotated_models/annotations.json'
+dataset = AnnotatedMeshDataset(models_path, annotations_path)
 train_dataloader = DataLoader(dataset, batch_size=BATCH_SIZE)
 
 #https://github.com/openai/CLIP/issues/57
