@@ -5,11 +5,25 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn
+from torch_geometric.nn import GraphSAGE, global_mean_pool
 
 from layers import BatchZERON_GCN, BatchGCNMax
 
+class SimpleMeshEncoder(nn.Module):
+    def __init__(self, joint_embed_dim):
+        super(SimpleMeshEncoder, self).__init__()
+        self.message_passing = GraphSAGE(in_channels=3,
+                                         hidden_channels=60,
+                                         num_layers=10,
+                                         out_channels=joint_embed_dim)
+        self.reduce = global_mean_pool
+
+    def forward(self, batch):
+        # TODO
+        return 0
+
 class BatchMeshEncoder(nn.Module):
-	def __init__(self, latent_length):
+	def __init__(self, joint_embed_dim):
 		super(BatchMeshEncoder, self).__init__()
 		self.h1 = BatchZERON_GCN(3, 60)
 		self.h21 = BatchZERON_GCN(60, 60)
@@ -27,7 +41,7 @@ class BatchMeshEncoder(nn.Module):
 		self.h9 = BatchZERON_GCN(300, 300)
 		self.h10 = BatchZERON_GCN(300, 300)
 		self.h11 = BatchZERON_GCN(300, 300)
-		self.reduce = BatchGCNMax(300,latent_length)
+		self.reduce = BatchGCNMax(300,joint_embed_dim)
 
 	def resnet(self, features, res):
 		temp = features[:,:res.shape[1]]
@@ -106,6 +120,8 @@ class Transformer(nn.Module):
 class CLIP(nn.Module):
     def __init__(self,
                  joint_embed_dim: int,
+                 # mesh,
+                 mesh_encoder: nn.Module,
                  # text
                  context_length: int,
                  vocab_size: int,
@@ -117,7 +133,7 @@ class CLIP(nn.Module):
 
         self.context_length = context_length
 
-        self.mesh_encoder = BatchMeshEncoder(joint_embed_dim)
+        self.mesh_encoder = mesh_encoder(joint_embed_dim)
 
         # self.transformer = TextEncoder(
         #     vocab_size=vocab_size,

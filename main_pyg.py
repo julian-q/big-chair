@@ -2,25 +2,25 @@
 import torch
 from torch import nn
 from torch import optim
-from dataset import AnnotatedMeshDataset
+from dataset_pyg import AnnotatedMeshDataset
 from torch.utils.data import DataLoader
-from models import CLIP, BatchMeshEncoder
+from models import CLIP, SimpleMeshEncoder
 from clip import tokenize
 
 BATCH_SIZE = 5
 EPOCH = 32
 
-models_path = 'dataset/chair_objs/'
-annotations_path = 'dataset/annotations.json'
-dataset = AnnotatedMeshDataset(models_path, annotations_path)
-train_dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, collate_fn=dataset.collate)
+dataset_root = './dataset/'
+# assumes that ./dataset/raw/ is full of .obj files!!!
+dataset = AnnotatedMeshDataset(dataset_root)
+train_dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
 
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
-model = CLIP(joint_embed_dim=512, mesh_encoder=BatchMeshEncoder,
+model = CLIP(joint_embed_dim=512, mesh_encoder=SimpleMeshEncoder, 
              context_length=dataset.max_desc_length + 2, vocab_size=49408, 
              transformer_width=512, transformer_heads=4, transformer_layers=6).to(device)
-  
+
 loss_img = nn.CrossEntropyLoss()
 loss_txt = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=5e-5,betas=(0.9,0.98),eps=1e-6,weight_decay=0.2) # Params used from paper, the lr is smaller, more safe for fine tuning to new dataset
@@ -30,11 +30,13 @@ for epoch in range(EPOCH):
     for i_batch, batch in enumerate(train_dataloader):
         optimizer.zero_grad()
 
-        batch_adjs = torch.stack(batch['adjs'], dim=0).to(device)
-        batch_positions = torch.stack(batch['verts'], dim=0).to(device) # 'verts' is vertex positions
-        batch_meshes = (batch_positions, batch_adjs)
+        # now, batch contains a mega graph containing each
+        # graph in the batch, as usual with pyg data loaders.
+        # each of these graphs has a 'descs' array containing
+        # its descriptions, all of which get combined into one
+        # giant nested array. we tokenize them below:
         batch_texts = torch.cat([tokenize(model_descs, context_length=dataset.max_desc_length + 2) 
-                                for model_descs in batch['descs']], 
+                                for model_descs in batch.descs], 
                                 dim=0).to(device)
 
         logits_per_mesh, logits_per_text = model(batch_meshes, batch_texts)
