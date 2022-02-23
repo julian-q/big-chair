@@ -35,15 +35,16 @@ for epoch in range(EPOCH):
         # each of these graphs has a 'descs' array containing
         # its descriptions, all of which get combined into one
         # giant nested array. we tokenize them below:
+        batch.to(device)
         batch_texts = torch.cat([tokenize(model_descs, context_length=dataset.max_desc_length + 2) 
                                 for model_descs in batch.descs], 
                                 dim=0).to(device)
 
-        logits_per_mesh, logits_per_text = model(batch_meshes, batch_texts)
+        logits_per_mesh, logits_per_text = model(batch, batch_texts)
         # uniform distribution over matching descs
-        target_per_mesh = torch.zeros(batch_meshes[0].shape[0], batch_texts.shape[0]).to(device) 
+        target_per_mesh = torch.zeros(batch[0].shape[0], batch_texts.shape[0]).to(device) 
         # one-hot distribution for single matching shape
-        target_per_text = torch.zeros(batch_texts.shape[0], batch_meshes[0].shape[0]).to(device) 
+        target_per_text = torch.zeros(batch_texts.shape[0], batch[0].shape[0]).to(device) 
         i_desc = 0
         for i_mesh, model_descs in enumerate(batch['descs']):
             target_per_mesh[i_mesh, i_desc:i_desc + len(model_descs)] = 1 / len(model_descs)
