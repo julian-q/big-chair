@@ -10,9 +10,10 @@ logger.setLevel(logging.ERROR) # quiet trimesh warnings
 
 class AnnotatedMeshDataset(InMemoryDataset):
     def __init__(self, root, transform=None, pre_transform=None, pre_filter=None):
-        self.root = root
-        with open(os.path.join(self.root, 'annotations.json'), 'r') as annotations_file:
+        with open(os.path.join(root, 'annotations.json'), 'r') as annotations_file:
             self.model2desc = json.load(annotations_file)
+        self.max_desc_length = max([max([len(desc) for desc in descriptions]) 
+                                    for descriptions in self.model2desc.values()])
         super().__init__(root, transform, pre_transform, pre_filter)
         self.data, self.slices = torch.load(self.processed_paths[0])
 
@@ -26,7 +27,7 @@ class AnnotatedMeshDataset(InMemoryDataset):
 
     def process(self):
         graphs = []
-        for obj in tqdm(self.raw_file_names):
+        for obj in tqdm(self.raw_file_names[:200]):
             mesh = trimesh.load(os.path.join(self.raw_dir, obj), force='mesh')
             model_id = obj.split('.')[0]
             descs = self.model2desc[model_id]

@@ -3,9 +3,9 @@ import torch
 from torch import nn
 from torch import optim
 from dataset_pyg import AnnotatedMeshDataset
-from torch.utils.data import DataLoader
+from torch_geometric.loader import DataLoader
 from models import CLIP, SimpleMeshEncoder
-from clip import tokenizeh
+from clip import tokenize
 
 BATCH_SIZE = 5
 EPOCH = 32
