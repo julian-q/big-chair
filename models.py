@@ -19,8 +19,9 @@ class SimpleMeshEncoder(nn.Module):
         self.reduce = global_mean_pool
 
     def forward(self, batch):
-        # TODO
-        return 0
+        x = self.message_passing(batch)
+        x = self.reduce(x, batch.batch)
+        return x
 
 class BatchMeshEncoder(nn.Module):
 	def __init__(self, joint_embed_dim):
