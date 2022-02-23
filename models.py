@@ -5,7 +5,6 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn
-from torch_geometric.utils import to_dense_adj
 
 from layers import BatchZERON_GCN, BatchGCNMax
 

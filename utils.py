@@ -41,14 +41,8 @@ def load_initial( obj='386.obj'):
 	# load obj file
 	obj = ObjLoader(obj)
 	labels = np.array(obj.vertices)
-	features = torch.FloatTensor(labels) # .cuda() ?
-	faces = torch.LongTensor(np.array(obj.faces) -1) # .cuda() ?
-
-	# points = torch.rand([1000, 3]) - .5 # .cuda() ?
-	# verts = features.clone()
-	# tri1 =  torch.index_select(verts, 0,faces[:,0]).unsqueeze(0)
-	# tri2 =  torch.index_select(verts, 0,faces[:,1]).unsqueeze(0)
-	# tri3 =  torch.index_select(verts, 0,faces[:,2]).unsqueeze(0)
+	features = torch.FloatTensor(labels)
+	faces = torch.LongTensor(np.array(obj.faces) -1)
 
 	# get adjacency matrix infomation
 	adj_info = adj_init(faces)
