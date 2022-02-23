@@ -3,5 +3,6 @@ dataset/annotated_models/
 dataset/annotated_objs/
 dataset/some_annotated_models/
 dataset/processed/
+dataset/annotated_graphs/
 __pycache__/
 .vscode
