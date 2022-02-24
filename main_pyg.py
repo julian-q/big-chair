@@ -40,7 +40,9 @@ for epoch in range(EPOCH):
         #                         for model_descs in batch.descs],
         #                         dim=0).to(device)
 
-        batch_texts = model.tokenizer(batch.descs, return_tensors="pt").to(device)
+        batch_texts = torch.cat([model.tokenizer(model_descs, return_tensors="pt")
+                                for model_descs in batch.descs],
+                                dim=0).to(device)
 
         logits_per_mesh, logits_per_text = model(batch, batch_texts)
         # uniform distribution over matching descs
