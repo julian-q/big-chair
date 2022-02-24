@@ -7,7 +7,7 @@ from torch_geometric.loader import DataLoader
 from models import CLIP, SimpleMeshEncoder
 from clip import tokenize
 
-BATCH_SIZE = 5
+BATCH_SIZE = 4
 EPOCH = 32
 
 dataset_root = './dataset/'
