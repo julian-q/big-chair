@@ -40,7 +40,7 @@ for epoch in range(EPOCH):
         #                         for model_descs in batch.descs],
         #                         dim=0).to(device)
 
-        batch_texts = torch.cat([model.tokenizer(model_descs, return_tensors="pt")
+        batch_texts = torch.cat([model.tokenizer(model_descs, return_tensors="pt", padding=True)
                                 for model_descs in batch.descs],
                                 dim=0).to(device)
 
