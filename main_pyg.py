@@ -36,9 +36,11 @@ for epoch in range(EPOCH):
         # its descriptions, all of which get combined into one
         # giant nested array. we tokenize them below:
         batch.to(device)
-        batch_texts = torch.cat([tokenize(model_descs, context_length=dataset.max_desc_length + 2) 
-                                for model_descs in batch.descs], 
-                                dim=0).to(device)
+        # batch_texts = torch.cat([tokenize(model_descs, context_length=dataset.max_desc_length + 2)
+        #                         for model_descs in batch.descs],
+        #                         dim=0).to(device)
+
+        batch_texts = model.tokenizer(batch.descs, return_tensors="pt").to(device)
 
         logits_per_mesh, logits_per_text = model(batch, batch_texts)
         # uniform distribution over matching descs

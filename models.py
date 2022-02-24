@@ -7,6 +7,7 @@ import torch.nn.functional as F
 from torch import nn
 from torch_geometric.nn import GraphSAGE, global_mean_pool
 from torch_geometric.data import Data
+from transformers import AutoTokenizer, AutoModel
 
 from layers import BatchZERON_GCN, BatchGCNMax
 
@@ -145,12 +146,14 @@ class CLIP(nn.Module):
 		#     output_dim=joint_embed_dim
 		# )
 
-		self.transformer = Transformer(
-			width=transformer_width,
-			layers=transformer_layers,
-			heads=transformer_heads,
-			attn_mask=self.build_attention_mask()
-		)
+		# self.transformer = Transformer(
+		# 	width=transformer_width,
+		# 	layers=transformer_layers,
+		# 	heads=transformer_heads,
+		# 	attn_mask=self.build_attention_mask()
+		# )
+		self.transformer = AutoModel.from_pretrained("bert-base-uncased")
+		self.tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
 
 		self.vocab_size = vocab_size
 		self.token_embedding = nn.Embedding(vocab_size, transformer_width)
@@ -194,17 +197,19 @@ class CLIP(nn.Module):
 		return self.mesh_encoder(mesh)
 
 	def encode_text(self, text):
-		x = self.token_embedding(text)  # [batch_size, n_ctx, d_model]
+		# x = self.token_embedding(text)  # [batch_size, n_ctx, d_model]
+		#
+		# x = x + self.positional_embedding
+		# x = x.permute(1, 0, 2)  # NLD -> LND
+		# x = self.transformer(x)
+		# x = x.permute(1, 0, 2)  # LND -> NLD
+		# x = self.ln_final(x)
+		#
+		# # x.shape = [batch_size, n_ctx, transformer.width]
+		# # take features from the eot embedding (eot_token is the highest number in each sequence)
+		# x = x[torch.arange(x.shape[0]), text.argmax(dim=-1)] @ self.text_projection
 
-		x = x + self.positional_embedding
-		x = x.permute(1, 0, 2)  # NLD -> LND
-		x = self.transformer(x)
-		x = x.permute(1, 0, 2)  # LND -> NLD
-		x = self.ln_final(x)
-
-		# x.shape = [batch_size, n_ctx, transformer.width]
-		# take features from the eot embedding (eot_token is the highest number in each sequence)
-		x = x[torch.arange(x.shape[0]), text.argmax(dim=-1)] @ self.text_projection
+		x = self.transformer(text, self.build_attention_mask())
 
 		return x
 
