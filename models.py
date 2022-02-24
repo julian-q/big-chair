@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from torch import nn
 from torch_geometric.nn import GraphSAGE, global_mean_pool
 from torch_geometric.data import Data
-from transformers import AutoTokenizer, AutoModel
+from transformers import AutoTokenizer, AutoModel, AutoConfig
 
 from layers import BatchZERON_GCN, BatchGCNMax
 
@@ -152,16 +152,19 @@ class CLIP(nn.Module):
 		# 	heads=transformer_heads,
 		# 	attn_mask=self.build_attention_mask()
 		# )
-		self.transformer = AutoModel.from_pretrained("bert-base-uncased")
-		self.tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased", model_max_length=context_length)
 
+		self.tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path="bert-base-uncased",
+													   model_max_length=context_length)
+		self.transformer = AutoModel.from_pretrained("bert-base-uncased")
+		pretrained_out_dim = 768
+		self.text_linear = nn.Linear(in_features=pretrained_out_dim, out_features=joint_embed_dim)
 		self.vocab_size = vocab_size
 		# self.token_embedding = nn.Embedding(vocab_size, transformer_width)
 		# self.positional_embedding = nn.Parameter(torch.empty(self.context_length, transformer_width))
 		# self.ln_final = LayerNorm(transformer_width)
 
 		# self.text_projection = nn.Parameter(torch.empty(transformer_width, joint_embed_dim))
-		# self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
+		self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
 
 		# self.initialize_parameters()
 
@@ -209,8 +212,9 @@ class CLIP(nn.Module):
 		# # take features from the eot embedding (eot_token is the highest number in each sequence)
 		# x = x[torch.arange(x.shape[0]), text.argmax(dim=-1)] @ self.text_projection
 
-		x = self.transformer(text)
-
+		x = self.transformer(text, return_dict=False)[0] # index 0 of tuple is last hidden state
+		x = x[torch.arange(x.shape[0]), (text == 102).nonzero()[:, 1]]
+		x = self.text_linear(x)
 		return x
 
 	def forward(self, mesh, text):

@@ -58,3 +58,4 @@ for epoch in range(EPOCH):
         print('batch', i_batch, 'loss:', total_loss.item())
         total_loss.backward()
         optimizer.step()
+    torch.save(model.state_dict(), "./baseline_train")
