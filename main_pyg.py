@@ -7,7 +7,7 @@ from torch_geometric.loader import DataLoader
 from models import CLIP, SimpleMeshEncoder
 from clip import tokenize
 
-BATCH_SIZE = 4
+BATCH_SIZE = 15
 EPOCH = 32
 
 dataset_root = './dataset/'
@@ -17,9 +17,9 @@ train_dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
 
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
-model = CLIP(joint_embed_dim=512, mesh_encoder=SimpleMeshEncoder, 
+model = CLIP(joint_embed_dim=128, mesh_encoder=SimpleMeshEncoder,
              context_length=dataset.max_desc_length + 2, vocab_size=49408, 
-             transformer_width=512, transformer_heads=4, transformer_layers=6).to(device)
+             transformer_width=128, transformer_heads=4, transformer_layers=6).to(device)
 
 loss_img = nn.CrossEntropyLoss()
 loss_txt = nn.CrossEntropyLoss()
