@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from torch import nn
 from torch_geometric.nn import GraphSAGE, global_mean_pool
 from torch_geometric.data import Data
-from transformers import BertModelTokenizer, BertModel
+from transformers import AutoTokenizer, AutoModel
 
 from layers import BatchZERON_GCN, BatchGCNMax
 
@@ -152,8 +152,8 @@ class CLIP(nn.Module):
 		# 	heads=transformer_heads,
 		# 	attn_mask=self.build_attention_mask()
 		# )
-		self.transformer = BertModel.from_pretrained("bert-base-uncased")
-		self.tokenizer = BertModelTokenizer.from_pretrained("bert-base-uncased")
+		self.transformer = AutoModel.from_pretrained("bert-base-uncased")
+		self.tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
 
 		self.vocab_size = vocab_size
 		self.token_embedding = nn.Embedding(vocab_size, transformer_width)
