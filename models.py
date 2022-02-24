@@ -153,7 +153,7 @@ class CLIP(nn.Module):
 		# 	attn_mask=self.build_attention_mask()
 		# )
 		self.transformer = AutoModel.from_pretrained("bert-base-uncased")
-		self.tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+		self.tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased", model_max_length=context_length)
 
 		self.vocab_size = vocab_size
 		# self.token_embedding = nn.Embedding(vocab_size, transformer_width)
