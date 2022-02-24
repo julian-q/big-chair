@@ -131,9 +131,9 @@ class CLIP_pretrained(nn.Module):
 
 		self.mesh_encoder = mesh_encoder(joint_embed_dim)
 		self.mesh_encoder.train()
-		self.text_encoder = AutoModel.from_pretrained('openai/clip-vit-large-patch14').text_model
+		self.text_encoder = AutoModel.from_pretrained('openai/clip-vit-base-patch32').text_model
 		self.text_encoder.train()
-		self.tokenizer = CLIPProcessor.from_pretrained('openai/clip-vit-large-patch14', mode_max_length=77).tokenizer
+		self.tokenizer = CLIPProcessor.from_pretrained('openai/clip-vit-base-patch32', mode_max_length=77).tokenizer
 		self.text_projection = nn.Linear(768, joint_embed_dim)
 		self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
 
