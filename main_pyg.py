@@ -40,7 +40,7 @@ for epoch in range(EPOCH):
         #                         for model_descs in batch.descs],
         #                         dim=0).to(device)
 
-        batch_texts = torch.cat([model.tokenizer(model_descs, return_tensors="pt", padding=True)
+        batch_texts = torch.cat([model.tokenizer(model_descs, return_tensors="pt", padding=True).input_ids
                                 for model_descs in batch.descs], dim=0).to(device)
 
         logits_per_mesh, logits_per_text = model(batch, batch_texts)
