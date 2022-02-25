@@ -48,8 +48,9 @@ def evaluate(eval_dataset, model, writer, epoch):
     model.load_state_dict(torch.load("parameters.pt"))
     model.eval()
 
-    eval_dataloader = DataLoader(eval_dataset, batch_size=len(eval_dataset), shuffle=False)
+    eval_dataloader = DataLoader(eval_dataset, batch_size=2, shuffle=False)
 
+    total_val_acc = torch.tensor([0], dtype=torch.float)
     for i_batch, batch in enumerate(eval_dataloader):
         n_batch = batch.batch.max() + 1
         # now, batch contains a mega graph containing each
@@ -77,11 +78,11 @@ def evaluate(eval_dataset, model, writer, epoch):
             i_desc += len(model_descs)
 
         logits_per_mesh, logits_per_text = model(batch, batch_texts, desc2mesh)
-        eval_acc = eval(logits_per_text, target_per_text)
-        print('val accuracy:', eval_acc.item())
-        writer.add_scalar('Accu/val', eval_acc.item(), epoch)
+        total_val_acc += eval(logits_per_text, target_per_text)
+    print('val accuracy:', total_val_acc.item())
+    writer.add_scalar('Accu/val', total_val_acc.item(), epoch)
 
-        return eval_acc
+    return total_val_acc
 
 
 writer = SummaryWriter()
