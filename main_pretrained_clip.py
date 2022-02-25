@@ -11,6 +11,7 @@ from clip import tokenize
 BATCH_SIZE = 2
 EPOCH = 50
 
+
 dataset_root = './dataset/'
 # assumes that ./dataset/raw/ is full of .obj files!!!
 dataset = AnnotatedMeshDataset(dataset_root)
@@ -27,6 +28,10 @@ loss_mesh = nn.CrossEntropyLoss()
 loss_text = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=5e-5,betas=(0.9,0.98),eps=1e-6,weight_decay=0.2) # Params used from paper, the lr is smaller, more safe for fine tuning to new dataset
 
+def eval(logits_per_text, targets_per_text):
+    preds = logits_per_text.argmax(dim=1)
+    labels = targets_per_text.argmax(dim=1)
+    return torch.sum(preds == labels) / labels.shape[0]
 
 writer = SummaryWriter()
 total_loss = torch.tensor([0], dtype=torch.float).to(device)
@@ -62,7 +67,8 @@ for epoch in range(EPOCH):
             i_desc += len(model_descs)
 
         logits_per_mesh, logits_per_text = model(batch, batch_texts, desc2mesh)
-
+        acc = eval(logits_per_text, target_per_text)
+        print('train accuracy:', acc)
         total_loss += (loss_mesh(logits_per_mesh, target_per_mesh) + loss_text(logits_per_text, target_per_text)) / 2
         if i_batch % 10 == 9:
             total_loss.backward()
@@ -78,3 +84,8 @@ for epoch in range(EPOCH):
 
         # if i_batch % 10 == 0:
         #     torch.save(model.state_dict(), 'parameters.pt')
+
+
+
+
+
