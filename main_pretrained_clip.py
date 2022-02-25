@@ -3,6 +3,7 @@ import torch
 from torch import nn
 from torch import optim
 from dataset_pyg import AnnotatedMeshDataset
+from evaluate import evaluate
 from torch_geometric.loader import DataLoader
 from models import CLIP_pretrained, SimpleMeshEncoder
 from torch.utils.tensorboard import SummaryWriter
@@ -88,16 +89,12 @@ for epoch in range(EPOCH):
             print('batch', i_batch, 'loss:', total_loss.item())
             grad_step += 1
             total_loss = torch.tensor([0], dtype=torch.float).to(device)
+            torch.save(model.state_dict(), "parameters.pt")
         count += 1
 
+torch.save(model.state_dict(), "parameters.pt")
 
-
-
-
-        # if i_batch % 10 == 0:
-        #     torch.save(model.state_dict(), 'parameters.pt')
-
-
+evaluate(val_dataset, model, device="cpu")
 
 
 
