@@ -22,7 +22,6 @@ class SimpleMeshEncoder(nn.Module):
 
 	def forward(self, batch):
 		x = self.message_passing(x=batch.x, edge_index=batch.edge_index)
-		print('mean first dim:', torch.mean(x, dim=0)[0])
 		x = self.reduce(x=x, batch=batch.batch)
 		return x
 
@@ -154,7 +153,6 @@ class CLIP_pretrained(nn.Module):
 		text_features = self.encode_text(text)
 		# text_features = torch.zeros(text.shape[0], self.joint_embed_dim).to(torch.float)
 		# text_features[torch.arange(text.shape[0]), desc2mesh] = 1
-		print(mesh_features[:10, :5])
 
 		# normalized features
 		mesh_features = mesh_features / mesh_features.norm(dim=-1, keepdim=True)
