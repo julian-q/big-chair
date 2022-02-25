@@ -5,9 +5,10 @@ from torch import optim
 from dataset_pyg import AnnotatedMeshDataset
 from torch_geometric.loader import DataLoader
 from models import CLIP_pretrained, SimpleMeshEncoder
+from torch.utils.tensorboard import SummaryWriter
 from clip import tokenize
 
-BATCH_SIZE = 10
+BATCH_SIZE = 50
 EPOCH = 100
 
 dataset_root = './dataset/'
@@ -26,6 +27,8 @@ loss_mesh = nn.CrossEntropyLoss()
 loss_text = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=5e-5,betas=(0.9,0.98),eps=1e-6,weight_decay=0.2) # Params used from paper, the lr is smaller, more safe for fine tuning to new dataset
 
+
+writer = SummaryWriter()
 for epoch in range(EPOCH):
     print('starting epoch', epoch)
     for i_batch, batch in enumerate(train_dataloader):
@@ -62,6 +65,7 @@ for epoch in range(EPOCH):
         print('batch', i_batch, 'loss:', total_loss.item())
         total_loss.backward()
         optimizer.step()
+        writer.add_scalar('Loss/train', total_loss.item(), epoch * BATCH_SIZE + i_batch)
 
         # if i_batch % 10 == 0:
         #     torch.save(model.state_dict(), 'parameters.pt')

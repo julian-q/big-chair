@@ -16,7 +16,7 @@ class SimpleMeshEncoder(nn.Module):
 		super(SimpleMeshEncoder, self).__init__()
 		self.message_passing = GraphSAGE(in_channels=30,
 										 hidden_channels=joint_embed_dim // 2,
-										 num_layers=1,
+										 num_layers=3,
 										 out_channels=joint_embed_dim)
 		self.reduce = global_mean_pool
 
