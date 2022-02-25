@@ -81,11 +81,18 @@ def evaluate(eval_dataset, model, writer, epoch):
         print('val accuracy:', eval_acc.item())
         writer.add_scalar('Accu/val', eval_acc.item(), epoch)
 
+        return eval_acc
+
 
 writer = SummaryWriter()
 total_loss = torch.tensor([0], dtype=torch.float).to(device)
 grad_step = 0
 count = 0
+
+losses = []
+train_accs = []
+val_accs = []
+
 for epoch in range(EPOCH):
     print('starting epoch', epoch)
     for i_batch, batch in enumerate(train_dataloader):
@@ -127,11 +134,19 @@ for epoch in range(EPOCH):
             writer.add_scalar('Loss/train', total_loss.item(), grad_step)
             print('batch', i_batch, 'loss:', total_loss.item())
             grad_step += 1
+
+            losses.append(total_loss.item())
+            torch.save(losses, "losses.pt")
+            train_accs.append(acc.item())
+            torch.save(train_accs, "train_accs.pt")
+
             total_loss = torch.tensor([0], dtype=torch.float).to(device)
             torch.save(model.state_dict(), "parameters.pt")
 
         count += 1
-    evaluate(val_dataset, model, writer, epoch)
+    val_acc =evaluate(val_dataset, model, writer, epoch)
+    val_accs.append(val_acc.item())
+    torch.save(val_accs, "val_accs.pt")
 
 torch.save(model.state_dict(), "parameters.pt")
 
