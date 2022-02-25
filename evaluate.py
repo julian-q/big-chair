@@ -33,6 +33,5 @@ def evaluate(eval_dataset, model, device="cpu"):
 
         logits_per_mesh, logits_per_text = model(batch, batch_texts, desc2mesh)
         eval_acc = eval(logits_per_text, target_per_text)
-        writer.add_scalar('Accu/eval', acc.item(), count)
         print('eval accuracy:', eval_acc)
         count += 1
