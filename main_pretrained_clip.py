@@ -19,8 +19,8 @@ dataset = AnnotatedMeshDataset(dataset_root)
 
 dataset.shuffle()
 
-train_share = 100#int(len(dataset) * 0.7)
-val_share = 10 #int(((len(dataset) - train_share) * 2) / 3)
+train_share = int(len(dataset) * 0.7)
+val_share = int(((len(dataset) - train_share) * 2) / 3)
 
 train_dataset = dataset[: train_share]
 val_dataset = dataset[train_share: train_share + val_share]
