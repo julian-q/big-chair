@@ -8,7 +8,7 @@ from models import CLIP_pretrained, SimpleMeshEncoder
 from torch.utils.tensorboard import SummaryWriter
 from clip import tokenize
 
-BATCH_SIZE = 20
+BATCH_SIZE = 3
 EPOCH = 50
 
 dataset_root = './dataset/'
