@@ -78,7 +78,7 @@ def evaluate(eval_dataset, model, writer, epoch):
 
         logits_per_mesh, logits_per_text = model(batch, batch_texts, desc2mesh)
         eval_acc = eval(logits_per_text, target_per_text)
-        print('eval accuracy:', eval_acc.item())
+        print('val accuracy:', eval_acc.item())
         writer.add_scalar('Accu/val', eval.acc.item(), epoch)
 
 
@@ -129,8 +129,9 @@ for epoch in range(EPOCH):
             grad_step += 1
             total_loss = torch.tensor([0], dtype=torch.float).to(device)
             torch.save(model.state_dict(), "parameters.pt")
-            evaluate(val_dataset, model, writer, epoch)
+
         count += 1
+    evaluate(val_dataset, model, writer, epoch)
 
 torch.save(model.state_dict(), "parameters.pt")
 
