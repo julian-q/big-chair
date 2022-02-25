@@ -79,9 +79,6 @@ def evaluate(eval_dataset, model, writer, epoch):
 
         logits_per_mesh, logits_per_text = model(batch, batch_texts, desc2mesh)
         total_val_acc += eval(logits_per_text, target_per_text)
-    print('val accuracy:', total_val_acc.item())
-    writer.add_scalar('Accu/val', total_val_acc.item(), epoch)
-
     return total_val_acc
 
 
@@ -97,6 +94,7 @@ val_accs = []
 for epoch in range(EPOCH):
     print('starting epoch', epoch)
     for i_batch, batch in enumerate(train_dataloader):
+        model.train()
         optimizer.zero_grad()
         n_batch = batch.batch.max() + 1
         # now, batch contains a mega graph containing each
@@ -145,7 +143,9 @@ for epoch in range(EPOCH):
             torch.save(model.state_dict(), "parameters.pt")
 
         count += 1
-    val_acc =evaluate(val_dataset, model, writer, epoch)
+    val_acc = evaluate(val_dataset, model, writer, epoch)
+    print('val accuracy:', val_acc.item())
+    writer.add_scalar('Accu/val', val_acc.item(), epoch)
     val_accs.append(val_acc.item())
     torch.save(val_accs, "val_accs.pt")
 
