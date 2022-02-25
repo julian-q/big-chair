@@ -149,11 +149,12 @@ class CLIP_pretrained(nn.Module):
 
 	def forward(self, batched_meshes, text, desc2mesh):
 		mesh_features = self.encode_mesh(batched_meshes)
+
 		# mesh_features = torch.eye(10, self.joint_embed_dim)
 		text_features = self.encode_text(text)
 		# text_features = torch.zeros(text.shape[0], self.joint_embed_dim).to(torch.float)
 		# text_features[torch.arange(text.shape[0]), desc2mesh] = 1
-		# print(mesh_features[:10, :5])
+		print(mesh_features[:10, :5])
 
 		# normalized features
 		mesh_features = mesh_features / mesh_features.norm(dim=-1, keepdim=True)
