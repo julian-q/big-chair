@@ -29,7 +29,7 @@ optimizer = optim.Adam(model.parameters(), lr=5e-5,betas=(0.9,0.98),eps=1e-6,wei
 
 
 writer = SummaryWriter()
-total_loss = torch.tensor([0])
+total_loss = torch.tensor([0]).to(device)
 grad_step = 0
 for epoch in range(EPOCH):
     print('starting epoch', epoch)
