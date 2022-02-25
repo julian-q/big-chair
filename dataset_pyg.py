@@ -27,7 +27,7 @@ class AnnotatedMeshDataset(InMemoryDataset):
 
     def process(self):
         graphs = []
-        for obj in tqdm(self.raw_file_names):
+        for obj in tqdm(self.raw_file_names[:100]):
             mesh = trimesh.load(os.path.join(self.raw_dir, obj), force='mesh')
             model_id = obj.split('.')[0]
             descs = self.model2desc[model_id]

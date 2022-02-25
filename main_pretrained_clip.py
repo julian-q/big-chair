@@ -16,14 +16,15 @@ EPOCH = 50
 dataset_root = './dataset/'
 # assumes that ./dataset/raw/ is full of .obj files!!!
 dataset = AnnotatedMeshDataset(dataset_root)
-dataset.shuffle()
-
-train_share = int(len(dataset) * 0.7)
-val_share = int(((len(dataset) - train_share) * 2) / 3)
-
-train_dataset = dataset[: train_share]
-val_dataset = dataset[train_share: train_share + val_share]
-test_dataset = dataset[train_share + val_share: ]
+train_dataset = dataset
+# dataset.shuffle()
+#
+# train_share = int(len(dataset) * 0.7)
+# val_share = int(((len(dataset) - train_share) * 2) / 3)
+#
+# train_dataset = dataset[: train_share]
+# val_dataset = dataset[train_share: train_share + val_share]
+# test_dataset = dataset[train_share + val_share: ]
 
 train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=False)
 

@@ -14,7 +14,7 @@ from layers import BatchZERON_GCN, BatchGCNMax
 class SimpleMeshEncoder(nn.Module):
 	def __init__(self, joint_embed_dim):
 		super(SimpleMeshEncoder, self).__init__()
-		self.message_passing = GraphSAGE(in_channels=30,
+		self.message_passing = GraphSAGE(in_channels=3,
 										 hidden_channels=joint_embed_dim // 2,
 										 num_layers=3,
 										 out_channels=joint_embed_dim)
