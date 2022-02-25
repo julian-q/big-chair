@@ -14,7 +14,7 @@ from layers import BatchZERON_GCN, BatchGCNMax
 class SimpleMeshEncoder(nn.Module):
 	def __init__(self, joint_embed_dim):
 		super(SimpleMeshEncoder, self).__init__()
-		self.message_passing = GraphSAGE(in_channels=30,
+		self.message_passing = GraphSAGE(in_channels=3,
 										 hidden_channels=joint_embed_dim // 2,
 										 num_layers=3,
 										 out_channels=joint_embed_dim)
@@ -143,15 +143,16 @@ class CLIP_pretrained(nn.Module):
 
 	def encode_text(self, text):
 		x = self.text_encoder(text).last_hidden_state
-		x = self.text_projection(x[torch.arange(x.shape[0]), text.argmax(dim=-1)])
+		# x = self.text_projection(x[torch.arange(x.shape[0]), text.argmax(dim=-1)])
+		x = self.text_projection(torch.sum(x, dim=1))
 		return x
 
 	def forward(self, batched_meshes, text, desc2mesh):
 		mesh_features = self.encode_mesh(batched_meshes)
 		# mesh_features = torch.eye(10, self.joint_embed_dim)
-		# text_features = self.encode_text(text)
-		text_features = torch.zeros(text.shape[0], self.joint_embed_dim).to(torch.float)
-		text_features[torch.arange(text.shape[0]), desc2mesh] = 1
+		text_features = self.encode_text(text)
+		# text_features = torch.zeros(text.shape[0], self.joint_embed_dim).to(torch.float)
+		# text_features[torch.arange(text.shape[0]), desc2mesh] = 1
 		# print(mesh_features[:10, :5])
 
 		# normalized features
