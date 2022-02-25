@@ -44,13 +44,13 @@ def eval(logits_per_text, targets_per_text):
     labels = targets_per_text.argmax(dim=1)
     return torch.sum(preds == labels) / labels.shape[0]
 
-def evaluate(eval_dataset, model, writer, epoch):
+def evaluate(eval_dataset, model, writer, epoch, device):
     model.load_state_dict(torch.load("parameters.pt"))
     model.eval()
 
     eval_dataloader = DataLoader(eval_dataset, batch_size=2, shuffle=False)
 
-    total_val_acc = torch.tensor([0], dtype=torch.float)
+    total_val_acc = torch.tensor([0], dtype=torch.float).to(device)
     for i_batch, batch in enumerate(eval_dataloader):
         n_batch = batch.batch.max() + 1
         # now, batch contains a mega graph containing each
@@ -143,7 +143,7 @@ for epoch in range(EPOCH):
             torch.save(model.state_dict(), "parameters.pt")
 
         count += 1
-    val_acc = evaluate(val_dataset, model, writer, epoch)
+    val_acc = evaluate(val_dataset, model, writer, epoch, device)
     print('val accuracy:', val_acc.item())
     writer.add_scalar('Accu/val', val_acc.item(), epoch)
     val_accs.append(val_acc.item())
