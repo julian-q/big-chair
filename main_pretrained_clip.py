@@ -70,7 +70,7 @@ for epoch in range(EPOCH):
             writer.add_scalar('Loss/train', total_loss.item(), grad_step)
             print('batch', i_batch, 'loss:', total_loss.item())
             grad_step += 1
-            total_loss = torch.tensor([0], dtype=torch.float)
+            total_loss = torch.tensor([0], dtype=torch.float).to(device)
 
 
 
