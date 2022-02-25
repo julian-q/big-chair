@@ -36,6 +36,7 @@ def eval(logits_per_text, targets_per_text):
 writer = SummaryWriter()
 total_loss = torch.tensor([0], dtype=torch.float).to(device)
 grad_step = 0
+count = 0
 for epoch in range(EPOCH):
     print('starting epoch', epoch)
     for i_batch, batch in enumerate(train_dataloader):
@@ -68,6 +69,7 @@ for epoch in range(EPOCH):
 
         logits_per_mesh, logits_per_text = model(batch, batch_texts, desc2mesh)
         acc = eval(logits_per_text, target_per_text)
+        writer.add_scalar('Accu/train', acc.item(), count)
         print('train accuracy:', acc)
         total_loss += (loss_mesh(logits_per_mesh, target_per_mesh) + loss_text(logits_per_text, target_per_text)) / 2
         if i_batch % 10 == 9:
@@ -77,6 +79,7 @@ for epoch in range(EPOCH):
             print('batch', i_batch, 'loss:', total_loss.item())
             grad_step += 1
             total_loss = torch.tensor([0], dtype=torch.float).to(device)
+        count += 1
 
 
 
