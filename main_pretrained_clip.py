@@ -79,7 +79,7 @@ def evaluate(eval_dataset, model, writer, epoch):
         logits_per_mesh, logits_per_text = model(batch, batch_texts, desc2mesh)
         eval_acc = eval(logits_per_text, target_per_text)
         print('val accuracy:', eval_acc.item())
-        writer.add_scalar('Accu/val', eval.acc.item(), epoch)
+        writer.add_scalar('Accu/val', eval_acc.item(), epoch)
 
 
 writer = SummaryWriter()
