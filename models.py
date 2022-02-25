@@ -5,19 +5,25 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn
-from torch_geometric.nn import GraphSAGE, global_mean_pool
+from torch_geometric.nn import GraphSAGE, GAT, global_mean_pool
 from torch_geometric.data import Data
 from transformers import AutoTokenizer, AutoModel, CLIPProcessor, Trainer, TrainingArguments
 
 from layers import BatchZERON_GCN, BatchGCNMax
 
 class SimpleMeshEncoder(nn.Module):
-	def __init__(self, joint_embed_dim):
+	def __init__(self, joint_embed_dim, opt="GraphSAGE"):
 		super(SimpleMeshEncoder, self).__init__()
-		self.message_passing = GraphSAGE(in_channels=3,
-										 hidden_channels=joint_embed_dim // 2,
-										 num_layers=3,
-										 out_channels=joint_embed_dim)
+		if opt == "GrapheSAGE":
+			self.message_passing = GraphSAGE(in_channels=3,
+										 	hidden_channels=joint_embed_dim // 2,
+										 	num_layers=3,
+										 	out_channels=joint_embed_dim)
+		elif opt == "GAT":
+			self.message_passing = GAT(in_channels=3,
+											 hidden_channels=joint_embed_dim // 2,
+											 num_layers=3,
+											 out_channels=joint_embed_dim)
 		self.reduce = global_mean_pool
 
 	def forward(self, batch):
@@ -130,7 +136,7 @@ class CLIP_pretrained(nn.Module):
 		super().__init__()
 
 		self.joint_embed_dim = joint_embed_dim
-		self.mesh_encoder = mesh_encoder(joint_embed_dim)
+		self.mesh_encoder = mesh_encoder(joint_embed_dim, opt="GAT")
 		self.mesh_encoder.train()
 		self.text_encoder = AutoModel.from_pretrained('openai/clip-vit-base-patch32').text_model
 		self.tokenizer = CLIPProcessor.from_pretrained('openai/clip-vit-base-patch32', mode_max_length=77).tokenizer

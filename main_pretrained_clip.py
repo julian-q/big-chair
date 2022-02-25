@@ -3,7 +3,6 @@ import torch
 from torch import nn
 from torch import optim
 from dataset_pyg import AnnotatedMeshDataset
-from evaluate import evaluate
 from torch_geometric.loader import DataLoader
 from models import CLIP_pretrained, SimpleMeshEncoder
 from torch.utils.tensorboard import SummaryWriter
