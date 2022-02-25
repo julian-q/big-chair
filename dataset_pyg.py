@@ -27,15 +27,16 @@ class AnnotatedMeshDataset(InMemoryDataset):
 
     def process(self):
         graphs = []
-        for obj in tqdm(self.raw_file_names[:200]):
+        for obj in tqdm(self.raw_file_names[:10]):
             mesh = trimesh.load(os.path.join(self.raw_dir, obj), force='mesh')
             model_id = obj.split('.')[0]
             descs = self.model2desc[model_id]
             # convert trimesh into graph, where the vertex positions are
             # the node features! we also attach an attribute that will
             # store the natural language descriptions
-            g = Data(x=torch.tensor(mesh.vertices).to(torch.float), 
+            g = Data(x=torch.rand(mesh.vertices.shape[0], 30), # torch.tensor(mesh.vertices).to(torch.float), 
                         edge_index=torch.tensor(mesh.edges.T),
+                        model_id=model_id,
                         descs=descs)
             graphs.append(g)
         self.data, self.slices = self.collate(graphs)

@@ -7,21 +7,22 @@ import torch.nn.functional as F
 from torch import nn
 from torch_geometric.nn import GraphSAGE, global_mean_pool
 from torch_geometric.data import Data
-from transformers import AutoTokenizer, AutoModel, CLIPProcessor
+from transformers import AutoTokenizer, AutoModel, CLIPProcessor, Trainer, TrainingArguments
 
 from layers import BatchZERON_GCN, BatchGCNMax
 
 class SimpleMeshEncoder(nn.Module):
 	def __init__(self, joint_embed_dim):
 		super(SimpleMeshEncoder, self).__init__()
-		self.message_passing = GraphSAGE(in_channels=3,
-										 hidden_channels=joint_embed_dim,
-										 num_layers=3,
+		self.message_passing = GraphSAGE(in_channels=30,
+										 hidden_channels=joint_embed_dim // 2,
+										 num_layers=1,
 										 out_channels=joint_embed_dim)
 		self.reduce = global_mean_pool
 
 	def forward(self, batch):
 		x = self.message_passing(x=batch.x, edge_index=batch.edge_index)
+		print('mean first dim:', torch.mean(x, dim=0)[0])
 		x = self.reduce(x=x, batch=batch.batch)
 		return x
 
@@ -129,12 +130,12 @@ class CLIP_pretrained(nn.Module):
 				 ):
 		super().__init__()
 
+		self.joint_embed_dim = joint_embed_dim
 		self.mesh_encoder = mesh_encoder(joint_embed_dim)
 		self.mesh_encoder.train()
 		self.text_encoder = AutoModel.from_pretrained('openai/clip-vit-base-patch32').text_model
-		self.text_encoder.train()
 		self.tokenizer = CLIPProcessor.from_pretrained('openai/clip-vit-base-patch32', mode_max_length=77).tokenizer
-		self.text_projection = nn.Linear(768, joint_embed_dim)
+		self.text_projection = nn.Linear(512, joint_embed_dim)
 		self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
 
 	def encode_mesh(self, mesh):
@@ -145,9 +146,13 @@ class CLIP_pretrained(nn.Module):
 		x = self.text_projection(x[torch.arange(x.shape[0]), text.argmax(dim=-1)])
 		return x
 
-	def forward(self, mesh, text):
-		mesh_features = self.encode_mesh(mesh)
-		text_features = self.encode_text(text)
+	def forward(self, batched_meshes, text, desc2mesh):
+		mesh_features = self.encode_mesh(batched_meshes)
+		# mesh_features = torch.eye(10, self.joint_embed_dim)
+		# text_features = self.encode_text(text)
+		text_features = torch.zeros(text.shape[0], self.joint_embed_dim).to(torch.float)
+		text_features[torch.arange(text.shape[0]), desc2mesh] = 1
+		# print(mesh_features[:10, :5])
 
 		# normalized features
 		mesh_features = mesh_features / mesh_features.norm(dim=-1, keepdim=True)
