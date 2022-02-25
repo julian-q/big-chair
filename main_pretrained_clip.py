@@ -8,7 +8,7 @@ from models import CLIP_pretrained, SimpleMeshEncoder
 from torch.utils.tensorboard import SummaryWriter
 from clip import tokenize
 
-BATCH_SIZE = 3
+BATCH_SIZE = 2
 EPOCH = 50
 
 dataset_root = './dataset/'
@@ -29,6 +29,8 @@ optimizer = optim.Adam(model.parameters(), lr=5e-5,betas=(0.9,0.98),eps=1e-6,wei
 
 
 writer = SummaryWriter()
+total_loss = 0
+grad_step = 0
 for epoch in range(EPOCH):
     print('starting epoch', epoch)
     for i_batch, batch in enumerate(train_dataloader):
@@ -61,11 +63,16 @@ for epoch in range(EPOCH):
 
         logits_per_mesh, logits_per_text = model(batch, batch_texts, desc2mesh)
 
-        total_loss = (loss_mesh(logits_per_mesh, target_per_mesh) + loss_text(logits_per_text, target_per_text)) / 2
+        total_loss += (loss_mesh(logits_per_mesh, target_per_mesh) + loss_text(logits_per_text, target_per_text)) / 2
         print('batch', i_batch, 'loss:', total_loss.item())
+
+
+    if epoch % 5 == 4:
         total_loss.backward()
         optimizer.step()
-        writer.add_scalar('Loss/train', total_loss.item(), epoch * BATCH_SIZE + i_batch)
+        writer.add_scalar('Loss/train', total_loss.item(), grad_step)
+        grad_step += 1
+        total_loss = 0
 
         # if i_batch % 10 == 0:
         #     torch.save(model.state_dict(), 'parameters.pt')
