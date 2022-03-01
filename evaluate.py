@@ -1,10 +1,27 @@
-def evaluate(eval_dataset, model, device="cpu"):
-    model.load_state_dict(torch.load("parameters.pt"))
+# based on https://github.com/openai/CLIP/issues/83
+import torch
+from dataset_pyg import AnnotatedMeshDataset
+from torch_geometric.loader import DataLoader
+from models import CLIP_pretrained, SimpleMeshEncoder
+
+def batch_eval(logits_per_text, targets_per_text):
+    preds = logits_per_text.argmax(dim=1)
+    labels = targets_per_text.argmax(dim=1)
+    return torch.sum(preds == labels) / labels.shape[0]
+
+def top_5_eval(logits_per_text, targets_per_text, k=5):
+    _, index_topk = torch.topk(logits_per_text, k=k, dim=1, sorted=False)
+    target_topk = torch.gather(targets_per_text, dim=1, index=index_topk)
+    return (torch.sum(torch.sum(target_topk, dim=1) > 0)) / target_topk.shape[0]
+
+def evaluate(eval_dataset, model, device, parameters_path=None):
+    if parameters_path != None:
+        model.load_state_dict(torch.load(parameters_path, map_location=torch.device(device)))
     model.eval()
 
     eval_dataloader = DataLoader(eval_dataset, batch_size=len(eval_dataset), shuffle=False)
 
-    count = 0
+    total_val_acc = torch.tensor([0], dtype=torch.float).to(device)
     for i_batch, batch in enumerate(eval_dataloader):
         n_batch = batch.batch.max() + 1
         # now, batch contains a mega graph containing each
@@ -20,8 +37,6 @@ def evaluate(eval_dataset, model, device="cpu"):
                                  for model_descs in batch.descs], dim=0).to(device)
         # vector mapping each description to its mesh index
         desc2mesh = torch.zeros(batch_texts.shape[0], dtype=torch.long)
-        # uniform distribution over matching descs
-        target_per_mesh = torch.zeros(n_batch, batch_texts.shape[0]).to(device)
         # one-hot distribution for single matching shape
         target_per_text = torch.zeros(batch_texts.shape[0], n_batch).to(device)
         # loop over the descriptions and populate above
@@ -32,6 +47,9 @@ def evaluate(eval_dataset, model, device="cpu"):
             i_desc += len(model_descs)
 
         logits_per_mesh, logits_per_text = model(batch, batch_texts, desc2mesh)
-        eval_acc = eval(logits_per_text, target_per_text)
-        print('eval accuracy:', eval_acc)
-        count += 1
+        total_val_acc += top_5_eval(logits_per_text, target_per_text)
+    return total_val_acc.item()
+
+
+
+

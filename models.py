@@ -14,7 +14,7 @@ from layers import BatchZERON_GCN, BatchGCNMax
 class SimpleMeshEncoder(nn.Module):
 	def __init__(self, joint_embed_dim, opt="GraphSAGE"):
 		super(SimpleMeshEncoder, self).__init__()
-		if opt == "GrapheSAGE":
+		if opt == "GraphSAGE":
 			self.message_passing = GraphSAGE(in_channels=3,
 										 	hidden_channels=joint_embed_dim // 2,
 										 	num_layers=3,
@@ -131,12 +131,13 @@ class CLIP_pretrained(nn.Module):
 	def __init__(self,
 				 joint_embed_dim: int,
 				 mesh_encoder: nn.Module,
-				 context_length: int
+				 context_length: int,
+				 opt
 				 ):
 		super().__init__()
 
 		self.joint_embed_dim = joint_embed_dim
-		self.mesh_encoder = mesh_encoder(joint_embed_dim, opt="GAT")
+		self.mesh_encoder = mesh_encoder(joint_embed_dim, opt=opt)
 		self.mesh_encoder.train()
 		self.text_encoder = AutoModel.from_pretrained('openai/clip-vit-base-patch32').text_model
 		self.tokenizer = CLIPProcessor.from_pretrained('openai/clip-vit-base-patch32', mode_max_length=77).tokenizer
