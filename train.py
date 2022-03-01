@@ -68,6 +68,7 @@ val_accs = []
 for epoch in range(EPOCH):
     print('starting epoch', epoch)
     for i_batch, batch in enumerate(train_dataloader):
+        print(i_batch)
         model.train()
         optimizer.zero_grad()
         n_batch = batch.batch.max() + 1
@@ -106,7 +107,7 @@ for epoch in range(EPOCH):
             average_loss.backward()
             optimizer.step()
             writer.add_scalar('Loss/train', average_loss.item(), grad_step)
-            print('batch', i_batch - 10, '-', i_batch,  'loss: ', average_loss.item())
+            print('batch', i_batch - 9, '-', i_batch,  'loss: ', average_loss.item())
             grad_step += 1
 
             losses.append(average_loss.item())
