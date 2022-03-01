@@ -112,7 +112,7 @@ for epoch in range(EPOCH):
             losses.append(average_loss.item())
             torch.save(average_loss, args.loss_file)
             train_accs.append(acc.item())
-            torch.save(train_accs, args.acc_file)
+            torch.save(train_accs, args.batch_accu_file)
 
             average_loss = torch.tensor([0], dtype=torch.float).to(device)
             total_loss = torch.tensor([0], dtype=torch.float).to(device)
