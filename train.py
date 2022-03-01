@@ -26,7 +26,7 @@ argp.add_argument('batch_accu_file',
 args = argp.parse_args()
 
 BATCH_SIZE = 2
-EPOCH = args.epoch
+EPOCH = int(args.epoch)
 
 dataset_root = './dataset/'
 # assumes that ./dataset/raw/ is full of .obj files!!!
