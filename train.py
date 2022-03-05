@@ -31,17 +31,17 @@ EPOCH = int(args.epoch)
 dataset_root = './dataset/'
 # assumes that ./dataset/raw/ is full of .obj files!!!
 dataset = AnnotatedMeshDataset(dataset_root)
+#
+# dataset.shuffle()
+#
+# train_share = int(len(dataset) * 0.8)
+# val_share = int((len(dataset) - train_share) / 2)
+#
+# train_dataset = dataset[: train_share]
+# val_dataset = dataset[train_share: train_share + val_share]
+# test_dataset = dataset[train_share + val_share: ]
 
-dataset.shuffle()
-
-train_share = int(len(dataset) * 0.8)
-val_share = int((len(dataset) - train_share) / 2)
-
-train_dataset = dataset[: train_share]
-val_dataset = dataset[train_share: train_share + val_share]
-test_dataset = dataset[train_share + val_share: ]
-
-train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=False)
+train_dataloader = DataLoader(torch.load("dataset/processed/train_set.pt"), batch_size=BATCH_SIZE, shuffle=False)
 
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
@@ -68,7 +68,6 @@ val_accs = []
 for epoch in range(EPOCH):
     print('starting epoch', epoch)
     for i_batch, batch in enumerate(train_dataloader):
-        print(i_batch)
         model.train()
         optimizer.zero_grad()
         n_batch = batch.batch.max() + 1
@@ -103,15 +102,16 @@ for epoch in range(EPOCH):
         print('train accuracy:', acc.item())
         total_loss += (loss_mesh(logits_per_mesh, target_per_mesh) + loss_text(logits_per_text, target_per_text)) / 2
         if i_batch % 10 == 9:
-            average_loss = total_loss / (10 * BATCH_SIZE)
-            average_loss.backward()
+            total_loss.backward()
             optimizer.step()
+
+            average_loss = total_loss / (10 * BATCH_SIZE)
             writer.add_scalar('Loss/train', average_loss.item(), grad_step)
             print('batch', i_batch - 9, '-', i_batch,  'loss: ', average_loss.item())
             grad_step += 1
 
             losses.append(average_loss.item())
-            torch.save(average_loss, args.loss_file)
+            torch.save(losses, args.loss_file)
             train_accs.append(acc.item())
             torch.save(train_accs, args.batch_accu_file)
 
