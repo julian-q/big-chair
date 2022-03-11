@@ -4,6 +4,16 @@ from dataset_pyg import AnnotatedMeshDataset
 from torch_geometric.loader import DataLoader
 from models import CLIP_pretrained, SimpleMeshEncoder
 
+import argparse
+
+argp = argparse.ArgumentParser()
+argp.add_argument('name',
+    help="name of routine")
+argp.add_argument('graph',
+    help="Which graph to run ('GraphSAGE' or 'GAT')",
+    choices=["GraphSAGE", "GAT"])
+args = argp.parse_args()
+
 def batch_eval(logits_per_text, targets_per_text):
     preds = logits_per_text.argmax(dim=1)
     labels = targets_per_text.argmax(dim=1)
@@ -14,7 +24,7 @@ def top_5_eval(logits_per_text, targets_per_text, k=5):
     target_topk = torch.gather(targets_per_text, dim=1, index=index_topk)
     return (torch.sum(torch.sum(target_topk, dim=1) > 0)) / target_topk.shape[0]
 
-def evaluate(eval_dataset, model, device, parameters_path=None):
+def evaluate(eval_dataset, model, parameters_path, device="cpu"):
     if parameters_path != None:
         model.load_state_dict(torch.load(parameters_path, map_location=torch.device(device)))
     model.eval()
@@ -50,6 +60,12 @@ def evaluate(eval_dataset, model, device, parameters_path=None):
         total_val_acc += top_5_eval(logits_per_text, target_per_text)
     return total_val_acc.item()
 
-
-
+dataset_root = './dataset/'
+dataset = AnnotatedMeshDataset(dataset_root)
+model = CLIP_pretrained(joint_embed_dim=128,
+                        mesh_encoder=SimpleMeshEncoder,
+                        context_length=dataset.max_desc_length,
+                        opt=args.graph).to("cpu")
+val_dataset = torch.load("dataset/processed/val_set.pt")
+print("Val Accuracy: ", evaluate(val_dataset, model, "../training_stuff/" + args.name + "/" + args.name + "_parameters.pt"))
 

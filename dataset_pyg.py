@@ -3,6 +3,7 @@ from torch_geometric.data import Data, InMemoryDataset
 import trimesh
 import json
 import os
+import numpy as np
 from tqdm import tqdm
 import logging
 logger = logging.getLogger("trimesh")
@@ -34,8 +35,21 @@ class AnnotatedMeshDataset(InMemoryDataset):
             # convert trimesh into graph, where the vertex positions are
             # the node features! we also attach an attribute that will
             # store the natural language descriptions
-            g = Data(x= torch.tensor(mesh.vertices).to(torch.float), # torch.rand(mesh.vertices.shape[0], 30),
-                        edge_index=torch.tensor(mesh.edges.T),
+
+            unique_edges = mesh.edges_unique
+            reversed_unique_edges = np.fliplr(unique_edges)
+            edges = np.concatenate([unique_edges, reversed_unique_edges])
+
+            edge_lengths = mesh.edges_unique_length
+            edge_lengths = np.concatenate([edge_lengths, edge_lengths])
+
+            # get rid of alpha channel
+            vertex_colors = np.delete(mesh.visual.vertex_colors, 3, 1)
+            node_features = np.concatenate([mesh.vertices, vertex_colors], axis=1)
+
+            g = Data(x= torch.tensor(node_features.T).to(torch.float), # torch.rand(mesh.vertices.shape[0], 30),
+                        edge_index=torch.tensor(edges.T),
+                        edge_attr=torch.tensor(edge_lengths).to(torch.float),
                         model_id=model_id,
                         descs=descs)
             graphs.append(g)

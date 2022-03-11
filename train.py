@@ -12,17 +12,13 @@ from clip import tokenize
 import argparse
 
 argp = argparse.ArgumentParser()
+argp.add_argument('name',
+    help="name of routine")
 argp.add_argument('graph',
     help="Which graph to run ('GraphSAGE' or 'GAT')",
     choices=["GraphSAGE", "GAT"])
 argp.add_argument('epoch',
     help="number of epochs", default=None)
-argp.add_argument('parameters_file',
-    help="name of file to save parameters to", default=None)
-argp.add_argument('loss_file',
-    help="name of file to save training loss to", default=None)
-argp.add_argument('batch_accu_file',
-    help="name of file to save per batch accuracy", default=None)
 args = argp.parse_args()
 
 BATCH_SIZE = 2
@@ -111,16 +107,16 @@ for epoch in range(EPOCH):
             grad_step += 1
 
             losses.append(average_loss.item())
-            torch.save(losses, args.loss_file)
+            torch.save(losses, args.name + "_loss.pt")
             train_accs.append(acc.item())
-            torch.save(train_accs, args.batch_accu_file)
+            torch.save(train_accs, args.name + "_batch_accu.pt")
 
             average_loss = torch.tensor([0], dtype=torch.float).to(device)
             total_loss = torch.tensor([0], dtype=torch.float).to(device)
         count += 1
-    torch.save(model.state_dict(), args.parameters_file)
+    torch.save(model.state_dict(), args.name + "_parameters.pt")
 print("done!")
-torch.save(model.state_dict(), args.parameters_file)
+torch.save(model.state_dict(), args.name + "_parameters.pt")
 
 
 
