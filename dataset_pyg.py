@@ -43,7 +43,11 @@ class AnnotatedMeshDataset(InMemoryDataset):
             edge_lengths = mesh.edges_unique_length
             edge_lengths = np.concatenate([edge_lengths, edge_lengths])
 
-            g = Data(x= torch.tensor(mesh.vertices).to(torch.float), # torch.rand(mesh.vertices.shape[0], 30),
+            # get rid of alpha channel
+            vertex_colors = np.delete(mesh.visual.vertex_colors, 3, 1)
+            node_features = np.concatenate([mesh.vertices, vertex_colors], axis=1)
+
+            g = Data(x= torch.tensor(node_features.T).to(torch.float), # torch.rand(mesh.vertices.shape[0], 30),
                         edge_index=torch.tensor(edges.T),
                         edge_attr=torch.tensor(edge_lengths).to(torch.float),
                         model_id=model_id,

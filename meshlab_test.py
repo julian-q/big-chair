@@ -10,13 +10,15 @@ i = 0
 for submesh in trimesh_scene.geometry.values():
     submesh.visual = submesh.visual.to_color()
 
-    if i == 0:
-        u_edges = submesh.edges_unique
-        # r_edges = np.fliplr(u_edges)
-        # edges = np.concatenate([u_edges, r_edges])
+    vertices = submesh.vertices
+    colors = np.delete(submesh.visual.vertex_colors, 3, 1)
 
-        # print(submesh.vertices)
+    if i == 1:
+        features = np.concatenate([vertices, colors], axis=1)
+        print(features)
+
     i += 1
+
     
 
 
