@@ -1,4 +1,3 @@
-from sqlalchemy import desc
 import torch
 from torch import nn
 
