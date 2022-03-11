@@ -12,6 +12,8 @@ from argparse import ArgumentParser
 torch.autograd.set_detect_anomaly(True)
 
 argp = ArgumentParser()
+argp.add_argument('name',
+    help="name of routine")
 argp.add_argument('--gnn',
 	help='Which gnn to run ("GraphSAGE" or "GAT")',
 	choices=['GraphSAGE', 'GAT'], default='GAT')
@@ -25,12 +27,6 @@ argp.add_argument('--descs_per_mesh',
 	help='number of descriptions per each mesh in a batch', type=int, default=5)
 argp.add_argument('--joint_embedding_dim',
 	help='dimension of joint embedding space', type=int, default=128)
-argp.add_argument('--parameters_file',
-	help='name of file to save parameters to', default='model_params.pt')
-argp.add_argument('--loss_file',
-	help='name of file to save training loss to', default='losses.pt')
-argp.add_argument('--batch_accu_file',
-	help='name of file to save per batch accuracy', default='accs.pt')
 args = argp.parse_args()
 
 # dataset setup
@@ -101,10 +97,13 @@ for epoch in range(args.epoch):
 			loss = gc(tokenized_descs, batch_meshes) # GradCache takes care of backprop
 			print(loss.item())
 			losses.append(loss)
+			torch.save(losses, args.name + "_loss.pt")
 			optimizer.step()
 
 			batch = []
-
+	torch.save(model.state_dict(), args.name + "_parameters.pt")
+print("done!")
+torch.save(model.state_dict(), args.name + "_parameters.pt")
 
 
 
