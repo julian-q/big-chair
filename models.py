@@ -5,7 +5,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn
-from torch_geometric.nn import GraphSAGE, GAT, global_mean_pool
+from torch_geometric.nn import GraphSAGE, GCNConv, GAT, GATConv, global_mean_pool, dense_diff_pool
 from torch_geometric.data import Data
 from transformers import AutoTokenizer, AutoModel, CLIPProcessor, Trainer, TrainingArguments
 
@@ -30,6 +30,38 @@ class SimpleMeshEncoder(nn.Module):
 		x = self.message_passing(x=batch.x, edge_index=batch.edge_index)
 		x = self.reduce(x=x, batch=batch.batch)
 		return x
+
+class HierarchicalMeshEncoder(nn.Module):
+	def __init__(self, input_dim):
+		super(HierarchicalMeshEncoder, self).__init__()
+
+		self.conv1_embed = GAT(in_channels=input_dim, hidden_channels=64, heads=4)
+		self.conv1_pool = GCNConv(in_channels=64, out_channels=32)
+
+		self.conv2_embed = GAT(in_channels=32, hidden_channes=32, heads=4)
+		self.conv2_pool = GCNConv(in_channels=32, out_channels=16)
+
+		self.conv3_embed = GAT(in_channels=16, hidden_channels=16, heads=4)
+
+		self.lin1 = nn.Linear(8, 8)
+
+	def forward(self, batch):
+		x = self.conv1_embed(x=batch.x, edge_index=batch.edge_index)
+		s = self.conv1_pool(x=x, edge_index=batch.edge_index)
+
+		x, adj, l1, e1 = dense_diff_pool(x=x, adj=batch.edge_index, s=s)
+
+		x = self.conv2_embed(x=x, edge_index=batch.edge_index)
+		s = self.conv2_pool(x=x, edge_index=batch.edge_index)
+
+		x, adj, l2, e2 = dense_diff_pool(x=x, adj=batch.edge_index, s=s)
+
+		x = self.conv3_embed(x=x, edge_index=batch.edge_index)
+
+		x = self.lin1(x)
+		x = global_mean_pool(x=x, batch=batch.batch)
+		return x
+
 
 class BatchMeshEncoder(nn.Module):
 	def __init__(self, joint_embed_dim):

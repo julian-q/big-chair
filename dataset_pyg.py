@@ -55,7 +55,3 @@ class AnnotatedMeshDataset(InMemoryDataset):
             graphs.append(g)
         self.data, self.slices = self.collate(graphs)
         torch.save((self.data, self.slices), self.processed_paths[0])
-
-
-
-
