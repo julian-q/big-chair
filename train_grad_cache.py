@@ -8,6 +8,7 @@ from models import SimpleMeshEncoder, DescriptionEncoder, ContrastiveLearner
 from loss import ContrastiveLoss
 from grad_cache import GradCache
 import random
+import os
 from argparse import ArgumentParser
 torch.autograd.set_detect_anomaly(True)
 
@@ -18,7 +19,7 @@ argp.add_argument('--gnn',
 	help='Which gnn to run ("GraphSAGE" or "GAT")',
 	choices=['GraphSAGE', 'GAT'], default='GAT')
 argp.add_argument('--epoch',
-	help='number of epochs', type=int, default=32)
+	help='number of epochs', type=int, default=100)
 argp.add_argument('--batch_size',
 	help='batch size', type=int, default=100)
 argp.add_argument('--sub_batch_size',
@@ -29,16 +30,13 @@ argp.add_argument('--joint_embedding_dim',
 	help='dimension of joint embedding space', type=int, default=128)
 args = argp.parse_args()
 
+
+os.mkdir(args.name)
 # dataset setup
+
 dataset_root = './dataset/'
 dataset = AnnotatedMeshDataset(dataset_root)
-dataset.shuffle()
-train_share = int(len(dataset) * 0.8)
-val_share = (len(dataset) - train_share) // 2
-train_dataset = dataset[:train_share]
-val_dataset = dataset[train_share:train_share + val_share]
-test_dataset = dataset[train_share + val_share:]
-train_dataloader = DataLoader(train_dataset, batch_size=args.sub_batch_size)
+train_dataloader = DataLoader(torch.load("dataset/processed/train_set.pt"), batch_size=args.sub_batch_size, shuffle=False)
 
 device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
@@ -96,14 +94,19 @@ for epoch in range(args.epoch):
 										 dim=0)
 			loss = gc(tokenized_descs, batch_meshes) # GradCache takes care of backprop
 			print(loss.item())
-			losses.append(loss)
-			torch.save(losses, args.name + "_loss.pt")
+			average_loss = loss / (len(batch) * args.sub_batch_size)
+			losses.append(average_loss)
+			torch.save(losses, args.name + "/" + args.name + "_loss.pt")
 			optimizer.step()
 
 			batch = []
-	torch.save(model.state_dict(), args.name + "_parameters.pt")
+	torch.save(desc_encoder.state_dict(), args.name + "/" + args.name + "_desc_parameters.pt")
+	torch.save(mesh_encoder.state_dict(), args.name + "/" + args.name + "_mesh_parameters.pt")
+	torch.save(contrastive_loss.state_dict(), args.name + "/" + args.name + "_loss_parameters.pt")
 print("done!")
-torch.save(model.state_dict(), args.name + "_parameters.pt")
+torch.save(desc_encoder.state_dict(), args.name + "/" + args.name + "_desc_parameters.pt")
+torch.save(mesh_encoder.state_dict(), args.name + "/" + args.name + "_mesh_parameters.pt")
+torch.save(contrastive_loss.state_dict(), args.name + "/" + args.name + "_loss_parameters.pt")
 
 
 
