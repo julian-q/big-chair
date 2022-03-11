@@ -11,8 +11,70 @@ from transformers import AutoTokenizer, AutoModel, CLIPProcessor, Trainer, Train
 
 from layers import BatchZERON_GCN, BatchGCNMax
 
+class DescriptionEncoder(nn.Module):
+	"""
+	uses an encoder from Hugging Face to embed descriptions
+	"""
+	def __init__(self, joint_embed_dim: int):
+		super().__init__()
+
+		self.joint_embed_dim = joint_embed_dim
+
+		huggingface_encoder_id = 'openai/clip-vit-base-patch32'
+		self.huggingface_tokenizer = AutoTokenizer.from_pretrained(huggingface_encoder_id)
+		self.huggingface_encoder = AutoModel.from_pretrained(huggingface_encoder_id).text_model
+
+		self.eos_token_id = self.huggingface_tokenizer.eos_token_id
+		self.text_projection = nn.Linear(self.huggingface_encoder.config.hidden_size,
+										 joint_embed_dim)
+
+	def tokenize(self, sampled_descs):
+		"""
+		Parameters
+		----------
+		sampled_descs: list of lists
+			a nested list of descs_per_mesh sampled descriptions for each mesh in the batch
+		
+		Returns
+		-------
+		tokenized: torch.Tensor
+			tokenized descriptions concatenated to shape
+			((BATCH_SIZE * descs_per_mesh) x model_max_length)
+		"""
+		# tokenize descriptions and concatenate them into a 
+		# tensor of shape ((BATCH_SIZE * descs_per_mesh) x model_max_length)
+		tokenized = [self.huggingface_tokenizer(descs, return_tensors='pt', padding='max_length', truncation=True).input_ids
+					 for descs in sampled_descs]
+		tokenized = torch.cat(tokenized, dim=0)
+		return tokenized
+
+	def forward(self, tokenized_descs):
+		"""
+		Parameters
+		----------
+		tokenized_descs: torch.Tensor
+			tokenized model descriptions as returned by tokenize
+			of shape ((BATCH_SIZE * descs_per_mesh) x model_max_length)
+		
+		Returns
+		-------
+		text_embeddings: torch.Tensor
+			description embeddings 
+			of shape ((BATCH_SIZE * descs_per_mesh) x joint_embed_dim)
+		"""
+		last_hidden_state = self.huggingface_encoder(tokenized_descs).last_hidden_state
+		# define 'global_context' as the hidden output of [EOS]
+		global_context = last_hidden_state[torch.arange(last_hidden_state.shape[0]), tokenized_descs.argmax(dim=1)] # (tokenized_descs == self.eos_token_id).nonzero()]
+		desc_embeddings = self.text_projection(global_context)
+		# normalize
+		desc_embeddings = F.normalize(desc_embeddings, dim=1)
+		return desc_embeddings
+
 class SimpleMeshEncoder(nn.Module):
-	def __init__(self, joint_embed_dim, opt="GraphSAGE"):
+	"""
+	GNN for embedding meshes
+	"""
+	def __init__(self, joint_embed_dim, opt="GAT"):
 		super(SimpleMeshEncoder, self).__init__()
 		if opt == "GraphSAGE":
 			self.message_passing = GraphSAGE(in_channels=3,
@@ -21,15 +83,17 @@ class SimpleMeshEncoder(nn.Module):
 										 	out_channels=joint_embed_dim)
 		elif opt == "GAT":
 			self.message_passing = GAT(in_channels=3,
-											 hidden_channels=joint_embed_dim // 2,
-											 num_layers=3,
-											 out_channels=joint_embed_dim)
+										hidden_channels=joint_embed_dim // 2,
+										num_layers=3,
+										out_channels=joint_embed_dim)
 		self.reduce = global_mean_pool
 
 	def forward(self, batch):
 		x = self.message_passing(x=batch.x, edge_index=batch.edge_index)
-		x = self.reduce(x=x, batch=batch.batch)
-		return x
+		mesh_embeddings = self.reduce(x=x, batch=batch.batch)
+		# normalize
+		mesh_embeddings = F.normalize(mesh_embeddings, dim=1)
+		return mesh_embeddings
 
 class HierarchicalMeshEncoder(nn.Module):
 	def __init__(self, input_dim):
