@@ -4,19 +4,22 @@ from torch import optim
 from dataset_pyg import AnnotatedMeshDataset
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
-from models import SimpleMeshEncoder, DescriptionEncoder, ContrastiveLearner
+from models import SimpleMeshEncoder, DescriptionEncoder
 from loss import ContrastiveLoss
 from grad_cache import GradCache
 import random
+import os
 from argparse import ArgumentParser
 torch.autograd.set_detect_anomaly(True)
 
 argp = ArgumentParser()
+argp.add_argument('name',
+    help="name of routine")
 argp.add_argument('--gnn',
 	help='Which gnn to run ("GraphSAGE" or "GAT")',
 	choices=['GraphSAGE', 'GAT'], default='GAT')
 argp.add_argument('--epoch',
-	help='number of epochs', type=int, default=32)
+	help='number of epochs', type=int, default=100)
 argp.add_argument('--batch_size',
 	help='batch size', type=int, default=100)
 argp.add_argument('--sub_batch_size',
@@ -25,24 +28,15 @@ argp.add_argument('--descs_per_mesh',
 	help='number of descriptions per each mesh in a batch', type=int, default=5)
 argp.add_argument('--joint_embedding_dim',
 	help='dimension of joint embedding space', type=int, default=128)
-argp.add_argument('--parameters_file',
-	help='name of file to save parameters to', default='model_params.pt')
-argp.add_argument('--loss_file',
-	help='name of file to save training loss to', default='losses.pt')
-argp.add_argument('--batch_accu_file',
-	help='name of file to save per batch accuracy', default='accs.pt')
 args = argp.parse_args()
 
+
+os.mkdir(args.name)
 # dataset setup
+
 dataset_root = './dataset/'
 dataset = AnnotatedMeshDataset(dataset_root)
-dataset.shuffle()
-train_share = int(len(dataset) * 0.8)
-val_share = (len(dataset) - train_share) // 2
-train_dataset = dataset[:train_share]
-val_dataset = dataset[train_share:train_share + val_share]
-test_dataset = dataset[train_share + val_share:]
-train_dataloader = DataLoader(train_dataset, batch_size=args.sub_batch_size)
+train_dataloader = DataLoader(torch.load("dataset/processed/train_set.pt"), batch_size=args.sub_batch_size, shuffle=False)
 
 device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
@@ -100,11 +94,19 @@ for epoch in range(args.epoch):
 										 dim=0)
 			loss = gc(tokenized_descs, batch_meshes) # GradCache takes care of backprop
 			print(loss.item())
-			losses.append(loss)
+			average_loss = loss / (len(batch) * args.sub_batch_size)
+			losses.append(average_loss)
+			torch.save(losses, args.name + "/" + args.name + "_loss.pt")
 			optimizer.step()
 
 			batch = []
-
+	torch.save(desc_encoder.state_dict(), args.name + "/" + args.name + "_desc_parameters.pt")
+	torch.save(mesh_encoder.state_dict(), args.name + "/" + args.name + "_mesh_parameters.pt")
+	torch.save(contrastive_loss.state_dict(), args.name + "/" + args.name + "_loss_parameters.pt")
+print("done!")
+torch.save(desc_encoder.state_dict(), args.name + "/" + args.name + "_desc_parameters.pt")
+torch.save(mesh_encoder.state_dict(), args.name + "/" + args.name + "_mesh_parameters.pt")
+torch.save(contrastive_loss.state_dict(), args.name + "/" + args.name + "_loss_parameters.pt")
 
 
 
