@@ -30,12 +30,12 @@ argp.add_argument('--joint_embedding_dim',
 	help='dimension of joint embedding space', type=int, default=128)
 args = argp.parse_args()
 
-
-os.mkdir(args.name)
+if not os.path.isdir(args.name):
+	os.mkdir(args.name)
 # dataset setup
 
 dataset_root = './dataset/'
-dataset = AnnotatedMeshDataset(dataset_root)
+# dataset = AnnotatedMeshDataset(dataset_root)
 train_dataloader = DataLoader(torch.load("dataset/processed/train_set.pt"), batch_size=args.sub_batch_size, shuffle=False)
 
 device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
@@ -78,11 +78,12 @@ for epoch in range(args.epoch):
 	batch = []
 	i_batch = 0
 	for sub_batch in train_dataloader:
+		sub_batch.to(device)
 		batch.append(sub_batch)
 
 		if len(batch) == args.batch_size // args.sub_batch_size:
 			optimizer.zero_grad()
-		
+			
 			batch_descs, batch_meshes = [sub_batch.descs for sub_batch in batch], batch
 			# since each mesh may have differing numbers of descriptions, we sample a fixed
 			# number (self.descs_per_mesh) of them for each mesh in order to standardize
@@ -91,7 +92,7 @@ for epoch in range(args.epoch):
 							 for sub_batch_descs in batch_descs]
 			tokenized_descs = torch.cat([desc_encoder.tokenize(sub_batch_descs) 
 										 for sub_batch_descs in sampled_descs],
-										 dim=0)
+										 dim=0).to(device)
 			loss = gc(tokenized_descs, batch_meshes) # GradCache takes care of backprop
 			print(loss.item())
 			average_loss = loss / (len(batch) * args.sub_batch_size)
