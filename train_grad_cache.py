@@ -4,7 +4,7 @@ from torch import optim
 from dataset_pyg import AnnotatedMeshDataset
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
-from models import SimpleMeshEncoder, DescriptionEncoder, ContrastiveLearner
+from models import SimpleMeshEncoder, DescriptionEncoder
 from loss import ContrastiveLoss
 from grad_cache import GradCache
 import random
