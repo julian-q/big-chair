@@ -37,23 +37,33 @@ def evaluate(eval_dataset, desc_encoder, mesh_encoder, device="cpu"):
     desc_embeddings = torch.empty(0, 128)
     mesh_embeddings = torch.empty(0, 128)
 
+    big_logit = torch.empty(0, len(eval_dataset))
+
     for batch_i in tqdm(eval_dataloader):
         print(torch.cuda.memory_summary())
 
-        batch.to(device)
-        batch_descs, batch_meshes = batch.descs, batch
+        batch_i.to(device)
+        batch_descs = batch_i.descs
+        sampled_descs = [random.choices(descs, k=args.descs_per_mesh) for descs in batch_descs]
+        tokenized_descs = desc_encoder.tokenize(sampled_descs).to(device)
+            
+        desc_embeddings_i = desc_encoder(tokenized_descs).cpu()
+
         # since each mesh may have differing numbers of descriptions, we sample a fixed
         # number (self.descs_per_mesh) of them for each mesh in order to standardize
         # memory usage
-        sampled_descs = [random.choices(descs, k=args.descs_per_mesh) for descs in batch_descs]
-        tokenized_descs = desc_encoder.tokenize(sampled_descs).to(device)
-        
-        desc_embeddings_i = desc_encoder(tokenized_descs).cpu()
-        mesh_embeddings_i = mesh_encoder(batch_meshes).cpu()
-        desc_embeddings = torch.cat([desc_embeddings, desc_embeddings_i], dim=0) 
-        mesh_embeddings = torch.cat([mesh_embeddings, mesh_embeddings_i], dim=0)
 
-    logits_per_desc = desc_embeddings @ mesh_embeddings.T
+        logits_i = torch.empty(desc_embeddings.shape[0], 0)
+
+        for batch_j in eval_dataloader:
+            batch_meshes = batch_j
+
+            mesh_embeddings = mesh_encoder(batch_meshes).cpu()
+
+            logits_i = desc_embeddings_i @ mesh_embeddings.t()
+            logits = torch.cat((logits, logits_i), dim=1)
+
+        big_logit = torch.cat((big_logit, logits), dim=0)
         
     n_desc = desc_embeddings.shape[0]
     n_mesh = mesh_embeddings.shape[0]
@@ -65,7 +75,7 @@ def evaluate(eval_dataset, desc_encoder, mesh_encoder, device="cpu"):
     targets_per_desc[torch.arange(n_desc), 
                         torch.arange(n_mesh).repeat_interleave(descs_per_mesh)] = 1
 
-    total_val_acc = top_5_eval(logits_per_desc, targets_per_desc)
+    total_val_acc = top_5_eval(big_logit, targets_per_desc)
 
     return total_val_acc.item()
 
