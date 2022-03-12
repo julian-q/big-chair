@@ -31,4 +31,5 @@ class ContrastiveLoss(nn.Module):
         desc_loss = self.desc_loss_fn(logits_per_desc, targets_per_desc)
         mesh_loss = self.desc_loss_fn(logits_per_mesh, targets_per_mesh)
         total_loss = (desc_loss + mesh_loss) / 2
+        
         return total_loss
