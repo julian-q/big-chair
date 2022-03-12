@@ -26,7 +26,7 @@ def bake_objs(obj_class: str):
         mesh = obj.data
 
         if not mesh.vertex_colors:
-            mesh.vertex_colors.new()
+            mesh.vertex_colors = mesh.vertex_colors.new()
             
         bpy.ops.object.bake(type='DIFFUSE')
 
