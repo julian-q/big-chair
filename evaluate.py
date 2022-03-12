@@ -3,6 +3,7 @@ import torch
 from dataset_pyg import AnnotatedMeshDataset
 from torch_geometric.loader import DataLoader
 from models import CLIP_pretrained, SimpleMeshEncoder
+import os
 
 import argparse
 
@@ -60,12 +61,12 @@ def evaluate(eval_dataset, model, parameters_path, device="cpu"):
         total_val_acc += top_5_eval(logits_per_text, target_per_text)
     return total_val_acc.item()
 
-dataset_root = './dataset/'
-dataset = AnnotatedMeshDataset(dataset_root)
+# dataset_root = './dataset/'
+# dataset = AnnotatedMeshDataset(dataset_root)
 model = CLIP_pretrained(joint_embed_dim=128,
                         mesh_encoder=SimpleMeshEncoder,
-                        context_length=dataset.max_desc_length,
+                        context_length=77,
                         opt=args.graph).to("cpu")
 val_dataset = torch.load("dataset/processed/val_set.pt")
-print("Val Accuracy: ", evaluate(val_dataset, model, "../training_stuff/" + args.name + "/" + args.name + "_parameters.pt"))
+print("Val Accuracy: ", evaluate(val_dataset, model, os.path.join(args.name, args.name + "_parameters.pt")))
 

@@ -32,12 +32,9 @@ def evaluate(eval_dataset, desc_encoder, mesh_encoder, device="cpu"):
     desc_encoder.eval()
     mesh_encoder.eval()
 
-    eval_dataloader = DataLoader(eval_dataset, batch_size=len(eval_dataset), shuffle=False)
+    eval_dataloader = DataLoader(eval_dataset, batch_size=1, shuffle=False)
 
-    desc_embeddings = torch.empty(0, 128)
-    mesh_embeddings = torch.empty(0, 128)
-
-    big_logit = torch.empty(0, len(eval_dataset))
+    big_logit = torch.empty(0, len(eval_dataset)).to(device)
 
     for batch_i in tqdm(eval_dataloader):
         print(torch.cuda.memory_summary())
@@ -47,30 +44,31 @@ def evaluate(eval_dataset, desc_encoder, mesh_encoder, device="cpu"):
         sampled_descs = [random.choices(descs, k=args.descs_per_mesh) for descs in batch_descs]
         tokenized_descs = desc_encoder.tokenize(sampled_descs).to(device)
             
-        desc_embeddings_i = desc_encoder(tokenized_descs).cpu()
+        desc_embeddings_i = desc_encoder(tokenized_descs).to(device)
 
         # since each mesh may have differing numbers of descriptions, we sample a fixed
         # number (self.descs_per_mesh) of them for each mesh in order to standardize
         # memory usage
 
-        logits_i = torch.empty(desc_embeddings.shape[0], 0)
+        logits_i = torch.ones(desc_embeddings_i.shape[0], 0).to(device)
 
         for batch_j in eval_dataloader:
+            batch_j.to(device)
             batch_meshes = batch_j
 
-            mesh_embeddings = mesh_encoder(batch_meshes).cpu()
+            mesh_embeddings = mesh_encoder(batch_meshes).to(device)
 
-            logits_i = desc_embeddings_i @ mesh_embeddings.t()
-            logits = torch.cat((logits, logits_i), dim=1)
+            logits_j = desc_embeddings_i @ mesh_embeddings.t()
+            logits_i = torch.cat((logits_i, logits_j), dim=1)
 
-        big_logit = torch.cat((big_logit, logits), dim=0)
+        big_logit = torch.cat((big_logit, logits_i), dim=0)
         
-    n_desc = desc_embeddings.shape[0]
-    n_mesh = mesh_embeddings.shape[0]
+    n_desc = len(eval_dataloader) * args.descs_per_mesh
+    n_mesh = len(eval_dataloader)
     descs_per_mesh = n_desc // n_mesh
 
     # target distributions
-    targets_per_desc = torch.zeros(n_desc, n_mesh).to(desc_embeddings.device)
+    targets_per_desc = torch.zeros(n_desc, n_mesh)
     # one-hot distribution for single matching mesh
     targets_per_desc[torch.arange(n_desc), 
                         torch.arange(n_mesh).repeat_interleave(descs_per_mesh)] = 1
