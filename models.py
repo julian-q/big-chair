@@ -4,8 +4,8 @@ from typing import Tuple, Union
 import numpy as np
 import torch
 import torch.nn.functional as F
-from torch import nn
-from torch_geometric.nn import GraphSAGE, GCNConv, GAT, GATConv, global_mean_pool, dense_diff_pool
+from torch import dropout, nn
+from torch_geometric.nn import GraphSAGE, GCNConv, GAT, GATConv, TopKPooling, global_mean_pool, global_max_pool
 from torch_geometric.data import Data
 from transformers import AutoTokenizer, AutoModel, CLIPProcessor, Trainer, TrainingArguments
 
@@ -96,34 +96,45 @@ class SimpleMeshEncoder(nn.Module):
 		return mesh_embeddings
 
 class HierarchicalMeshEncoder(nn.Module):
-	def __init__(self, input_dim):
+	def __init__(self, input_dim, dropout_prob=0.6, ratio=0.8):
 		super(HierarchicalMeshEncoder, self).__init__()
 
-		self.conv1_embed = GAT(in_channels=input_dim, hidden_channels=64, heads=4)
-		self.conv1_pool = GCNConv(in_channels=64, out_channels=32)
+		self.dropout_prob = dropout_prob
+		self.ratio = ratio
 
-		self.conv2_embed = GAT(in_channels=32, hidden_channes=32, heads=4)
-		self.conv2_pool = GCNConv(in_channels=32, out_channels=16)
+		self.conv1 = GATConv(input_dim, 64)
+		self.pool1 = TopKPooling(64, ratio=ratio)
+		self.conv2 = GATConv(64, 64)
+		self.pool2 = TopKPooling(64, ratio=ratio)
+		self.conv3 = GATConv(64, 64)
+		self.pool3 = TopKPooling(64, ratio=ratio)
 
-		self.conv3_embed = GAT(in_channels=16, hidden_channels=16, heads=4)
-
-		self.lin1 = nn.Linear(8, 8)
 
 	def forward(self, batch):
-		x = self.conv1_embed(x=batch.x, edge_index=batch.edge_index)
-		s = self.conv1_pool(x=x, edge_index=batch.edge_index)
+		x, edge_index, edge_attr = batch.x, batch.edge_index, batch.edge_attr
 
-		x, adj, l1, e1 = dense_diff_pool(x=x, adj=batch.edge_index, s=s)
+		x = self.conv1(x, edge_index, edge_attr)
+		x = F.elu(x)
+		x = F.dropout(x, p=self.dropout_prob, training=self.training)
 
-		x = self.conv2_embed(x=x, edge_index=batch.edge_index)
-		s = self.conv2_pool(x=x, edge_index=batch.edge_index)
+		x, edge_index, _, batch, _ = self.pool1(x, edge_index, None, batch)
 
-		x, adj, l2, e2 = dense_diff_pool(x=x, adj=batch.edge_index, s=s)
+		x = self.conv2(x, edge_index, None)
+		x = F.elu(x)
+		x = F.dropout(x, p=self.dropout_prob, training=self.training)
 
-		x = self.conv3_embed(x=x, edge_index=batch.edge_index)
+		x, edge_index, _, batch, _ = self.pool2(x, edge_index, None, batch)
 
-		x = self.lin1(x)
-		x = global_mean_pool(x=x, batch=batch.batch)
+		x = self.conv3(x, edge_index, None)
+		x = F.elu(x)
+		x = F.dropout(x, p=self.dropout_prob, training=self.training)
+
+		x, edge_index, _, batch, _ = self.pool3(x, edge_index, None, batch)
+
+		mean_pool = global_mean_pool(x, batch)
+		max_pool = global_max_pool(x, batch)
+		x = torch.cat([mean_pool, max_pool], dim=1)
+
 		return x
 
 
