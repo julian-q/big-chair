@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from ntpath import join
 from typing import Tuple, Union
 
 import numpy as np
@@ -119,19 +120,19 @@ class SimpleMeshEncoder(nn.Module):
 		return mesh_embeddings
 		
 class HierarchicalMeshEncoder(nn.Module):
-	def __init__(self, input_dim, dropout_prob=0.6, ratio=0.8):
+	def __init__(self, input_dim, joint_embed_dim, dropout_prob=0.6, ratio=0.8):
 		super(HierarchicalMeshEncoder, self).__init__()
 
 		self.dropout_prob = dropout_prob
 		self.ratio = ratio
 
-		self.conv1 = GATConv(input_dim, 64)
-		self.pool1 = TopKPooling(64, ratio=ratio)
-		self.conv2 = GATConv(64, 64)
-		self.pool2 = TopKPooling(64, ratio=ratio)
-		self.conv3 = GATConv(64, 64)
-		self.pool3 = TopKPooling(64, ratio=ratio)
-
+		self.conv1 = GATConv(input_dim, joint_embed_dim // 2)
+		self.pool1 = TopKPooling(joint_embed_dim // 2, ratio=ratio)
+		self.conv2 = GATConv(joint_embed_dim // 2, joint_embed_dim)
+		self.pool2 = TopKPooling(joint_embed_dim, ratio=ratio)
+		self.conv3 = GATConv(joint_embed_dim, joint_embed_dim)
+		self.pool3 = TopKPooling(joint_embed_dim, ratio=ratio)
+		self.linear = nn.Linear(joint_embed_dim * 2, joint_embed_dim)
 
 	def forward(self, batch):
 		x, edge_index, edge_attr = batch.x, batch.edge_index, batch.edge_attr
@@ -157,6 +158,7 @@ class HierarchicalMeshEncoder(nn.Module):
 		mean_pool = global_mean_pool(x, batch)
 		max_pool = global_max_pool(x, batch)
 		x = torch.cat([mean_pool, max_pool], dim=1)
+		x = self.linear(x)
 
 		return x
 
