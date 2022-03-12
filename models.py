@@ -21,9 +21,9 @@ class DescriptionEncoder(nn.Module):
 
 		self.joint_embed_dim = joint_embed_dim
 
-		huggingface_encoder_id = 'openai/clip-vit-base-patch32'
+		huggingface_encoder_id = 'distilbert-base-uncased'
 		self.huggingface_tokenizer = AutoTokenizer.from_pretrained(huggingface_encoder_id)
-		self.huggingface_encoder = AutoModel.from_pretrained(huggingface_encoder_id).text_model
+		self.huggingface_encoder = AutoModel.from_pretrained(huggingface_encoder_id)
 
 		self.eos_token_id = self.huggingface_tokenizer.eos_token_id
 		self.text_projection = nn.Linear(self.huggingface_encoder.config.hidden_size,
