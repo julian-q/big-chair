@@ -5,6 +5,7 @@ dataset/some_annotated_models/
 dataset/annotated_graphs/
 dataset/processed/
 dataset/raw
+gat_grad_cache/
 runs/
 __pycache__/
 .vscode

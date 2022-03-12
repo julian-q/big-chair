@@ -70,12 +70,12 @@ class DescriptionEncoder(nn.Module):
 		desc_embeddings = F.normalize(desc_embeddings, dim=1)
 		return desc_embeddings
 
-class SimpleMeshEncoder(nn.Module):
+class MeshEncoder(nn.Module):
 	"""
 	GNN for embedding meshes
 	"""
 	def __init__(self, joint_embed_dim, opt="GAT"):
-		super(SimpleMeshEncoder, self).__init__()
+		super().__init__()
 		if opt == "GraphSAGE":
 			self.message_passing = GraphSAGE(in_channels=3,
 										 	hidden_channels=joint_embed_dim // 2,
@@ -95,6 +95,29 @@ class SimpleMeshEncoder(nn.Module):
 		mesh_embeddings = F.normalize(mesh_embeddings, dim=1)
 		return mesh_embeddings
 
+class SimpleMeshEncoder(nn.Module):
+	"""
+	GNN for embedding meshes
+	"""
+	def __init__(self, joint_embed_dim, opt="GAT"):
+		super().__init__()
+		if opt == "GraphSAGE":
+			self.message_passing = GraphSAGE(in_channels=3,
+										 	hidden_channels=joint_embed_dim // 2,
+										 	num_layers=3,
+										 	out_channels=joint_embed_dim)
+		elif opt == "GAT":
+			self.message_passing = GAT(in_channels=3,
+										hidden_channels=joint_embed_dim // 2,
+										num_layers=3,
+										out_channels=joint_embed_dim)
+		self.reduce = global_mean_pool
+
+	def forward(self, batch):
+		x = self.message_passing(x=batch.x, edge_index=batch.edge_index)
+		mesh_embeddings = self.reduce(x=x, batch=batch.batch)
+		return mesh_embeddings
+		
 class HierarchicalMeshEncoder(nn.Module):
 	def __init__(self, input_dim, dropout_prob=0.6, ratio=0.8):
 		super(HierarchicalMeshEncoder, self).__init__()

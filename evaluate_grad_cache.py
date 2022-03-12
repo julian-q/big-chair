@@ -1,0 +1,73 @@
+# based on https://github.com/openai/CLIP/issues/83
+from lib2to3.pgen2 import token
+import torch
+from dataset_pyg import AnnotatedMeshDataset
+from torch_geometric.loader import DataLoader
+from models import DescriptionEncoder, MeshEncoder
+import random
+
+import argparse
+
+argp = argparse.ArgumentParser()
+argp.add_argument('name',
+    help="name of routine")
+# argp.add_argument('graph',
+#     help="Which graph to run ('GraphSAGE' or 'GAT')",
+#     choices=["GraphSAGE", "GAT"])
+argp.add_argument('--descs_per_mesh',
+	help='number of descriptions per each mesh in a batch', type=int, default=5)
+args = argp.parse_args()
+
+def batch_eval(logits_per_text, targets_per_text):
+    preds = logits_per_text.argmax(dim=1)
+    labels = targets_per_text.argmax(dim=1)
+    return torch.sum(preds == labels) / labels.shape[0]
+
+def top_5_eval(logits_per_text, targets_per_text, k=5):
+    _, index_topk = torch.topk(logits_per_text, k=k, dim=1, sorted=False)
+    target_topk = torch.gather(targets_per_text, dim=1, index=index_topk)
+    return (torch.sum(torch.sum(target_topk, dim=1) > 0)) / target_topk.shape[0]
+
+def evaluate(eval_dataset, desc_encoder, mesh_encoder, device="cpu"):
+    desc_encoder.eval()
+    mesh_encoder.eval()
+
+    eval_dataloader = DataLoader(eval_dataset, batch_size=len(eval_dataset), shuffle=False)
+
+    total_val_acc = torch.tensor([0], dtype=torch.float).to(device)
+    for i_batch, batch in enumerate(eval_dataloader):
+        batch_descs, batch_meshes = batch.descs, batch
+        # since each mesh may have differing numbers of descriptions, we sample a fixed
+        # number (self.descs_per_mesh) of them for each mesh in order to standardize
+        # memory usage
+        sampled_descs = [random.choices(descs, k=args.descs_per_mesh) for descs in batch_descs]
+        tokenized_descs = desc_encoder.tokenize(sampled_descs) 
+        
+        desc_embeddings = desc_encoder(tokenized_descs)
+        mesh_embeddings = mesh_encoder(batch_meshes)
+
+        # logits_per_mesh = mesh_embeddings @ desc_embeddings
+        logits_per_desc = desc_embeddings @ mesh_embeddings
+        
+        n_desc = desc_embeddings.shape[0]
+        n_mesh = mesh_embeddings.shape[0]
+        descs_per_mesh = n_desc // n_mesh
+
+        # target distributions
+        targets_per_desc = torch.zeros(n_desc, n_mesh).to(desc_embeddings.device)
+        # one-hot distribution for single matching mesh
+        targets_per_desc[torch.arange(n_desc), 
+                         torch.arange(n_mesh).repeat_interleave(descs_per_mesh)] = 1
+
+        total_val_acc += top_5_eval(logits_per_desc, targets_per_desc)
+    return total_val_acc.item()
+
+device = 'cpu'
+# init models
+desc_encoder = DescriptionEncoder(128).to(device)
+desc_encoder.load_state_dict(torch.load(args.name + "/" + args.name + "_desc_parameters.pt"))
+mesh_encoder = MeshEncoder(128).to(device)
+mesh_encoder.load_state_dict(torch.load(args.name + "/" + args.name + "_mesh_parameters.pt"))
+val_dataset = torch.load("dataset/processed/val_set.pt")
+print("Val Accuracy: ", evaluate(val_dataset, desc_encoder, mesh_encoder))
+
