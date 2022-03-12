@@ -4,6 +4,7 @@ dataset/annotated_objs/
 dataset/some_annotated_models/
 dataset/annotated_graphs/
 dataset/processed/
+dataset/baked_models/
 dataset/raw
 runs/
 __pycache__/
