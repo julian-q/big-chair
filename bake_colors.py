@@ -1,12 +1,15 @@
 import bpy
 import os
+import random
+
+root = '/Users/julianquevedo/code/text2mesh/dataset/'
 
 def bake_objs(obj_class: str):
-    filenames = []
-    for obj_id in os.listdir(f'annotated_models/{obj_class}'):
-        filenames.append(os.path.join(obj_id, 'model.obj'))
+    obj_folders = []
+    for obj_id in os.listdir(root + f'annotated_models/{obj_class}'):
+        obj_folders.append(os.path.join(obj_id))
 
-    outDir = f'baked_models/{obj_class}'
+    outDir = root + f'baked_models/{obj_class}/'
 
     bpy.data.scenes["Scene"].render.engine = "CYCLES"
     bpy.data.scenes["Scene"].cycles.bake_type = "DIFFUSE"
@@ -15,23 +18,29 @@ def bake_objs(obj_class: str):
     bpy.data.scenes["Scene"].render.bake.use_pass_color = True
     bpy.data.scenes["Scene"].render.bake.target = "VERTEX_COLORS"
 
-    for filename in filenames:
+    for obj_folder in obj_folders:
+        filename = os.path.join(root, 'annotated_models', obj_class, obj_folder, 'model.obj')
         imported_object = bpy.ops.import_scene.obj(filepath=filename)
         obj_object = bpy.context.selected_objects[0]
+        print(bpy.context.selected_objects)
+        bpy.context.view_layer.objects.active = obj_object
+        bpy.ops.object.join()
+        
         print('Imported name: ', obj_object.name)
 
-        bpy.context.view_layer.objects.active = obj_object
-
-        obj = bpy.context.selected_objects[0]
-        mesh = obj.data
+        mesh = obj_object.data
 
         if not mesh.vertex_colors:
-            mesh.vertex_colors = mesh.vertex_colors.new()
+            mesh.vertex_colors.new()
             
         bpy.ops.object.bake(type='DIFFUSE')
 
-        target_file = outDir + filename + ".ply"
-        bpy.ops.export_mesh.ply(filepath=target_file)
-    
+        target_file = os.path.join(outDir, obj_folder, "baked_model.obj")
+        if not os.path.isdir(os.path.join(outDir, obj_folder)):
+            os.mkdir(os.path.join(outDir, obj_folder))
+        bpy.ops.export_scene.obj(filepath=target_file)
+        
+        bpy.ops.object.delete()
+
 bake_objs('Chair')
 bake_objs('Table')
