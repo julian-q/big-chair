@@ -5,7 +5,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn
-from torch_geometric.nn import GraphSAGE, GAT, global_mean_pool
+from torch_geometric.nn import GraphSAGE, GCNConv, GAT, GATConv, global_mean_pool, dense_diff_pool
 from torch_geometric.data import Data
 from transformers import AutoTokenizer, AutoModel, CLIPProcessor, Trainer, TrainingArguments
 
@@ -70,12 +70,12 @@ class DescriptionEncoder(nn.Module):
 		desc_embeddings = F.normalize(desc_embeddings, dim=1)
 		return desc_embeddings
 
-class SimpleMeshEncoder(nn.Module):
+class MeshEncoder(nn.Module):
 	"""
 	GNN for embedding meshes
 	"""
 	def __init__(self, joint_embed_dim, opt="GAT"):
-		super(SimpleMeshEncoder, self).__init__()
+		super().__init__()
 		if opt == "GraphSAGE":
 			self.message_passing = GraphSAGE(in_channels=3,
 										 	hidden_channels=joint_embed_dim // 2,
@@ -94,6 +94,61 @@ class SimpleMeshEncoder(nn.Module):
 		# normalize
 		mesh_embeddings = F.normalize(mesh_embeddings, dim=1)
 		return mesh_embeddings
+
+class SimpleMeshEncoder(nn.Module):
+	"""
+	GNN for embedding meshes
+	"""
+	def __init__(self, joint_embed_dim, opt="GAT"):
+		super().__init__()
+		if opt == "GraphSAGE":
+			self.message_passing = GraphSAGE(in_channels=3,
+										 	hidden_channels=joint_embed_dim // 2,
+										 	num_layers=3,
+										 	out_channels=joint_embed_dim)
+		elif opt == "GAT":
+			self.message_passing = GAT(in_channels=3,
+										hidden_channels=joint_embed_dim // 2,
+										num_layers=3,
+										out_channels=joint_embed_dim)
+		self.reduce = global_mean_pool
+
+	def forward(self, batch):
+		x = self.message_passing(x=batch.x, edge_index=batch.edge_index)
+		mesh_embeddings = self.reduce(x=x, batch=batch.batch)
+		return mesh_embeddings
+		
+class HierarchicalMeshEncoder(nn.Module):
+	def __init__(self, input_dim):
+		super(HierarchicalMeshEncoder, self).__init__()
+
+		self.conv1_embed = GAT(in_channels=input_dim, hidden_channels=64, heads=4)
+		self.conv1_pool = GCNConv(in_channels=64, out_channels=32)
+
+		self.conv2_embed = GAT(in_channels=32, hidden_channes=32, heads=4)
+		self.conv2_pool = GCNConv(in_channels=32, out_channels=16)
+
+		self.conv3_embed = GAT(in_channels=16, hidden_channels=16, heads=4)
+
+		self.lin1 = nn.Linear(8, 8)
+
+	def forward(self, batch):
+		x = self.conv1_embed(x=batch.x, edge_index=batch.edge_index)
+		s = self.conv1_pool(x=x, edge_index=batch.edge_index)
+
+		x, adj, l1, e1 = dense_diff_pool(x=x, adj=batch.edge_index, s=s)
+
+		x = self.conv2_embed(x=x, edge_index=batch.edge_index)
+		s = self.conv2_pool(x=x, edge_index=batch.edge_index)
+
+		x, adj, l2, e2 = dense_diff_pool(x=x, adj=batch.edge_index, s=s)
+
+		x = self.conv3_embed(x=x, edge_index=batch.edge_index)
+
+		x = self.lin1(x)
+		x = global_mean_pool(x=x, batch=batch.batch)
+		return x
+
 
 class BatchMeshEncoder(nn.Module):
 	def __init__(self, joint_embed_dim):

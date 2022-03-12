@@ -4,7 +4,7 @@ from torch import optim
 from dataset_pyg import AnnotatedMeshDataset
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
-from models import SimpleMeshEncoder, DescriptionEncoder
+from models import MeshEncoder, DescriptionEncoder
 from loss import ContrastiveLoss
 from grad_cache import GradCache
 import random
@@ -23,7 +23,7 @@ argp.add_argument('--epoch',
 argp.add_argument('--batch_size',
 	help='batch size', type=int, default=100)
 argp.add_argument('--sub_batch_size',
-	help='batch size', type=int, default=2)
+	help='batch size', type=int, default=25)
 argp.add_argument('--descs_per_mesh',
 	help='number of descriptions per each mesh in a batch', type=int, default=5)
 argp.add_argument('--joint_embedding_dim',
@@ -42,8 +42,11 @@ device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
 # init models
 desc_encoder = DescriptionEncoder(args.joint_embedding_dim).to(device)
-mesh_encoder = SimpleMeshEncoder(args.joint_embedding_dim).to(device)
+desc_encoder.load_state_dict(torch.load(args.name + "/" + args.name + "_desc_parameters.pt"))
+mesh_encoder = MeshEncoder(args.joint_embedding_dim).to(device)
+mesh_encoder.load_state_dict(torch.load(args.name + "/" + args.name + "_mesh_parameters.pt"))
 contrastive_loss = ContrastiveLoss().to(device)
+contrastive_loss.load_state_dict(torch.load(args.name + "/" + args.name + "_loss_parameters.pt"))
 
 def split_inputs(model_input, chunk_size):
 	if isinstance(model_input, torch.Tensor):
