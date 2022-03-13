@@ -57,9 +57,9 @@ class AnnotatedMeshDataset(InMemoryDataset):
 
         # processing graphs
         graphs = []
-        for obj_class in os.listdir(os.path.join('dataset', 'annotated_models')):
-            for obj_folder in tqdm(os.listdir(os.path.join('dataset', 'annotated_models', obj_class))):
-                mesh = trimesh.load(os.path.join('dataset', 'annotated_models', obj_class, obj_folder, 'model.obj'), force='mesh')
+        for obj_class in os.listdir(os.path.join('dataset', 'colored_models')):
+            for obj_folder in tqdm(os.listdir(os.path.join('dataset', 'colored_models', obj_class))):
+                mesh = trimesh.load(os.path.join('dataset', 'colored_models', obj_class, obj_folder, 'model.obj'), force='mesh')
                 
                 # model_id = obj.split('.')[0]
                 full_descs = self.model2desc[obj_folder]
@@ -77,9 +77,9 @@ class AnnotatedMeshDataset(InMemoryDataset):
 
                 # # get rid of alpha channel
                 # vertex_colors = np.delete(mesh.visual.vertex_colors, 3, 1)
-                if not os.path.exists(os.path.join('dataset', 'annotated_models', obj_class, obj_folder, 'vertex_colors.pickle')):
+                if not os.path.exists(os.path.join('dataset', 'colored_models', obj_class, obj_folder, 'vertex_colors.pickle')):
                     continue
-                vertex_colors_file = open(os.path.join('dataset', 'annotated_models', obj_class, obj_folder, 'vertex_colors.pickle'), 'rb')
+                vertex_colors_file = open(os.path.join('dataset', 'colored_models', obj_class, obj_folder, 'vertex_colors.pickle'), 'rb')
                 pos2col = pickle.load(vertex_colors_file)
                 rounded_pos2col = {}
                 for key, value in pos2col.items():
