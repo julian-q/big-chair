@@ -36,9 +36,10 @@ if not os.path.isdir(args.name):
 	os.mkdir(args.name)
 # dataset setup
 
-dataset_root = './dataset/'
-# dataset = AnnotatedMeshDataset(dataset_root)
-train_dataloader = DataLoader(torch.load("dataset/processed/train_set.pt"), batch_size=args.sub_batch_size, shuffle=False)
+dataset_root = 'dataset'
+dataset = AnnotatedMeshDataset(dataset_root)
+train_dataloader = DataLoader(dataset, batch_size=args.sub_batch_size, shuffle=True)
+# train_dataloader = DataLoader(torch.load("dataset/processed/train_set.pt"), batch_size=args.sub_batch_size, shuffle=False)
 
 device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 

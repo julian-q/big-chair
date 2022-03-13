@@ -53,7 +53,7 @@ def evaluate(eval_dataset, model, parameters_path, device="cpu"):
         # loop over the descriptions and populate above
         i_desc = 0
         for i_mesh, model_descs in enumerate(batch.descs):
-            desc2mesh[i_desc:i_desc + len(model_descs)] = i_mesh
+            desc2mesh[i_desc:i_desc + len(model_descs)] = i_mesh.clone()
             target_per_text[i_desc:i_desc + len(model_descs), i_mesh] = 1
             i_desc += len(model_descs)
 
