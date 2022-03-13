@@ -68,7 +68,7 @@ class DescriptionEncoder(nn.Module):
 		tokenized = [self.huggingface_tokenizer(descs, return_tensors='pt', padding='max_length', truncation=True).input_ids
 					 for descs in sampled_descs]
 		tokenized = torch.cat(tokenized, dim=0)
-		if adj_noun_pairs = None:
+		if adj_noun_pairs == None:
 			return tokenized
 		else:
 			parsed_samples = [self.parser(desc) for desc in sampled_descs]
