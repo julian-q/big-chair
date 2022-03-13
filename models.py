@@ -69,15 +69,14 @@ class DescriptionContextEncoder(nn.Module):
 		"""
 		# tokenize descriptions and concatenate them into a 
 		# tensor of shape ((BATCH_SIZE * descs_per_mesh) x model_max_length)
-		tokenized = [self.huggingface_tokenizer(descs, return_tensors='pt', padding='max_length', truncation=True).input_ids
+		tokenized = [self.huggingface_tokenizer([desc["full_desc"] for desc in descs], return_tensors='pt', padding='max_length', truncation=True).input_ids
 					 for descs in sampled_descs]
 		tokenized = torch.cat(tokenized, dim=0).to(device)
 		return tokenized
 
 	def adj_noun_tokenize(self, sampled_descs):
 		assert(self.adj_noun)
-		parsed_samples = [[self.parser(desc) for desc in sublist] for sublist in sampled_descs]
-		adj_noun_lists = [[self.get_adj_noun(parsed_sample) for parsed_sample in sublist] for sublist in parsed_samples]
+		adj_noun_lists = [[desc["adj_noun"] for desc in descs] for descs in sampled_descs]
 
 		tokenized_adj_noun = [self.huggingface_tokenizer(adj_nouns, return_tensors='pt', padding='max_length',
 															truncation=True).input_ids
