@@ -110,6 +110,7 @@ class DescriptionContextEncoder(nn.Module):
 			adj_noun_context = last_adj_noun_hidden_state[torch.arange(last_hidden_state.shape[0]), tokenized_adj_noun.argmax(dim=1)]
 			# adj_noun_context = adj_noun_context.reshape([global_context.shape[0], -1])
 			adj_noun_context = torch.mean(adj_noun_context, dim=1) # (torch.sum(adj_noun_context, dim=1)) / adj_noun_context.shape[1]  # average
+			print(adj_noun_context.shape)
 			global_context = torch.cat([global_context, adj_noun_context], dim=0)
 
 		projection = self.adj_noun_text_projection if self.adj_noun else self.text_projection
