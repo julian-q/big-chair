@@ -4,13 +4,14 @@ from torch import optim
 from dataset_pyg import AnnotatedMeshDataset
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
-from models import MeshEncoder, DescriptionContextEncoder, HierarchicalMeshEncoder
+from models import MeshEncoder, DescriptionContextEncoder, HierarchicalMeshEncoder, DescriptionEncoder
 from loss import ContrastiveLoss
 from grad_cache import GradCache
 import random
 import os
 from argparse import ArgumentParser
 from typing import List
+from evaluate_grad_cache import evaluate
 torch.autograd.set_detect_anomaly(True)
 
 argp = ArgumentParser()
@@ -26,7 +27,7 @@ argp.add_argument('--epoch',
 argp.add_argument('--batch_size',
 	help='batch size', type=int, default=100)
 argp.add_argument('--sub_batch_size',
-	help='batch size', type=int, default=25)
+	help='batch size', type=int, default=20)
 argp.add_argument('--descs_per_mesh',
 	help='number of descriptions per each mesh in a batch', type=int, default=5)
 argp.add_argument('--joint_embedding_dim',
@@ -40,18 +41,20 @@ if not os.path.isdir(args.name):
 dataset_root = 'dataset'
 dataset = AnnotatedMeshDataset(dataset_root)
 train_dataloader = DataLoader(dataset, batch_size=args.sub_batch_size, shuffle=True)
-# train_dataloader = DataLoader(torch.load("dataset/processed/train_set.pt"), batch_size=args.sub_batch_size, shuffle=False)
+
+# train_dataloader = DataLoader(torch.load("dataset/processed/data.pt"), batch_size=args.sub_batch_size, shuffle=False)
 
 device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
 # init models
-desc_encoder = DescriptionContextEncoder(args.joint_embedding_dim, args.adj_noun).to(device)
+# desc_encoder = DescriptionContextEncoder(args.joint_embedding_dim, args.adj_noun).to(device)
+desc_encoder = DescriptionEncoder(args.joint_embedding_dim).to(device)
 # desc_encoder.load_state_dict(torch.load(args.name + "/" + args.name + "_desc_parameters.pt"))
 # mesh_encoder = MeshEncoder(args.joint_embedding_dim).to(device)
 
 # 6 is input dim because we have 3 for vertex positions and 3 for vertex colors
 # mesh_encoder = HierarchicalMeshEncoder(6, args.joint_embedding_dim).to(device)
-mesh_encoder = HierarchicalMeshEncoder(3, args.joint_embedding_dim).to(device)
+mesh_encoder = HierarchicalMeshEncoder(6, args.joint_embedding_dim).to(device)
 
 # mesh_encoder.load_state_dict(torch.load(args.name + "/" + args.name + "_mesh_parameters.pt"))
 contrastive_loss = ContrastiveLoss().to(device)
@@ -89,6 +92,18 @@ val_accs = []
 
 for epoch in range(args.epoch):
 	print('starting epoch', epoch)
+
+	desc_encoder.train()
+	mesh_encoder.train()
+	contrastive_loss.train()
+
+	epoch_acc = evaluate(dataset[:100], desc_encoder.cpu(), mesh_encoder.cpu(), args.descs_per_mesh, device="cpu")
+	print('training accuracy:', epoch_acc)
+	train_accs.append(epoch_acc)
+
+	mesh_encoder.to(device)
+	desc_encoder.to(device)
+
 	batch = []
 	i_batch = 0
 	for sub_batch in train_dataloader:
@@ -117,10 +132,17 @@ for epoch in range(args.epoch):
 			torch.save(losses, args.name + "/" + args.name + "_loss.pt")
 			optimizer.step()
 
+			# print(torch.cuda.memory_summary())
+
 			batch = []
 	torch.save(desc_encoder.state_dict(), args.name + "/" + args.name + "_desc_parameters.pt")
 	torch.save(mesh_encoder.state_dict(), args.name + "/" + args.name + "_mesh_parameters.pt")
 	torch.save(contrastive_loss.state_dict(), args.name + "/" + args.name + "_loss_parameters.pt")
+
+	torch.save(losses, os.path.join(args.name, args.name + "_loss.pt"))
+	torch.save(train_accs, os.path.join(args.name, args.name + "_train_accs.pt"))
+
+
 print("done!")
 torch.save(desc_encoder.state_dict(), args.name + "/" + args.name + "_desc_parameters.pt")
 torch.save(mesh_encoder.state_dict(), args.name + "/" + args.name + "_mesh_parameters.pt")

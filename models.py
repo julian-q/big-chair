@@ -110,7 +110,7 @@ class DescriptionEncoder(nn.Module):
 
 		huggingface_encoder_id = 'openai/clip-vit-base-patch32'
 		self.huggingface_tokenizer = AutoTokenizer.from_pretrained(huggingface_encoder_id)
-		self.huggingface_encoder = AutoModel.from_pretrained(huggingface_encoder_id)
+		self.huggingface_encoder = AutoModel.from_pretrained(huggingface_encoder_id).text_model
 
 		self.eos_token_id = self.huggingface_tokenizer.eos_token_id
 		self.text_projection = nn.Linear(self.huggingface_encoder.config.hidden_size,
@@ -152,10 +152,11 @@ class DescriptionEncoder(nn.Module):
 		tokenized = torch.cat(tokenized, dim=0)
 		return tokenized
 
-	def forward(self, tokenized_descs):
+	def forward(self, sampled_descs, device='cuda'):
 		"""
 		Parameters
 		----------
+		DIFFERENT NOW
 		tokenized_descs: torch.Tensor
 			tokenized model descriptions as returned by tokenize
 			of shape ((BATCH_SIZE * descs_per_mesh) x model_max_length)
@@ -166,6 +167,8 @@ class DescriptionEncoder(nn.Module):
 			description embeddings
 			of shape ((BATCH_SIZE * descs_per_mesh) x joint_embed_dim)
 		"""
+		just_descs = [[desc['full_desc'] for desc in mesh_descs] for mesh_descs in sampled_descs]
+		tokenized_descs = self.tokenize(just_descs).to(device)
 		last_hidden_state = self.huggingface_encoder(tokenized_descs).last_hidden_state
 		# define 'global_context' as the hidden output of [EOS]
 		global_context = last_hidden_state[torch.arange(last_hidden_state.shape[0]), tokenized_descs.argmax(
@@ -230,11 +233,11 @@ class HierarchicalMeshEncoder(nn.Module):
 		self.dropout_prob = dropout_prob
 		self.ratio = ratio
 
-		self.conv1 = GATConv(input_dim, joint_embed_dim // 2)
+		self.conv1 = GATConv(input_dim, joint_embed_dim // 2, edge_dim=1)
 		self.pool1 = TopKPooling(joint_embed_dim // 2, ratio=ratio)
-		self.conv2 = GATConv(joint_embed_dim // 2, joint_embed_dim)
+		self.conv2 = GATConv(joint_embed_dim // 2, joint_embed_dim, edge_dim=1)
 		self.pool2 = TopKPooling(joint_embed_dim, ratio=ratio)
-		self.conv3 = GATConv(joint_embed_dim, joint_embed_dim)
+		self.conv3 = GATConv(joint_embed_dim, joint_embed_dim, edge_dim=1)
 		self.pool3 = TopKPooling(joint_embed_dim, ratio=ratio)
 		self.linear = nn.Linear(joint_embed_dim * 2, joint_embed_dim)
 

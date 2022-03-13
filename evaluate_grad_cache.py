@@ -10,16 +10,6 @@ import argparse
 import os
 import gc
 
-argp = argparse.ArgumentParser()
-argp.add_argument('name',
-    help="name of routine")
-# argp.add_argument('graph',
-#     help="Which graph to run ('GraphSAGE' or 'GAT')",
-#     choices=["GraphSAGE", "GAT"])
-argp.add_argument('--descs_per_mesh',
-	help='number of descriptions per each mesh in a batch', type=int, default=5)
-args = argp.parse_args()
-
 def batch_eval(logits_per_text, targets_per_text):
     preds = logits_per_text.argmax(dim=1)
     labels = targets_per_text.argmax(dim=1)
@@ -30,11 +20,12 @@ def top_5_eval(logits_per_text, targets_per_text, k=5):
     target_topk = torch.gather(targets_per_text, dim=1, index=index_topk)
     return (torch.sum(torch.sum(target_topk, dim=1) > 0)) / target_topk.shape[0]
 
-def evaluate(eval_dataset, desc_encoder, mesh_encoder, device="cpu"):
+def evaluate(eval_dataset, desc_encoder, mesh_encoder, descs_per_mesh, batch_size=1, device="cpu"):
+
     desc_encoder.eval()
     mesh_encoder.eval()
 
-    eval_dataloader = DataLoader(eval_dataset, batch_size=1, shuffle=False)
+    eval_dataloader = DataLoader(eval_dataset, batch_size=batch_size, shuffle=False)
 
     big_logit = torch.empty(len(eval_dataset), len(eval_dataset)).to(device)
     batch_i_idx = 0
@@ -44,10 +35,11 @@ def evaluate(eval_dataset, desc_encoder, mesh_encoder, device="cpu"):
 
         batch_i.to(device)
         batch_descs = batch_i.descs
-        sampled_descs = [random.choices(descs, k=args.descs_per_mesh) for descs in batch_descs]
-        tokenized_descs = desc_encoder.tokenize(sampled_descs).to(device)
+        sampled_descs = [random.choices(descs, k=descs_per_mesh) for descs in batch_descs]
+        # just_descs = [[desc['full_desc'] for desc in mesh_descs] for mesh_descs in sampled_descs]
+        # tokenized_descs = desc_encoder.tokenize(just_descs).to(device)
             
-        desc_embeddings_i = desc_encoder(tokenized_descs).to(device)
+        desc_embeddings_i = desc_encoder(sampled_descs, device=device).to(device)
 
         # since each mesh may have differing numbers of descriptions, we sample a fixed
         # number (self.descs_per_mesh) of them for each mesh in order to standardize
@@ -70,7 +62,7 @@ def evaluate(eval_dataset, desc_encoder, mesh_encoder, device="cpu"):
         big_logit[batch_i_idx:batch_i_idx + logits_i.shape[0], :] = logits_i.clone()
         batch_i_idx += logits_i.shape[0]
         
-    n_desc = len(eval_dataloader) * args.descs_per_mesh
+    n_desc = len(eval_dataloader) * descs_per_mesh
     n_mesh = len(eval_dataloader)
     descs_per_mesh = n_desc // n_mesh
 
@@ -84,14 +76,25 @@ def evaluate(eval_dataset, desc_encoder, mesh_encoder, device="cpu"):
 
     return total_val_acc.item()
 
-device = 'cpu'
-# init models
 
-desc_encoder = DescriptionContextEncoder(128).to(device)
-desc_encoder.load_state_dict(torch.load(args.name + "/" + args.name + "_desc_parameters.pt"))
-mesh_encoder = MeshEncoder(128).to(device)
-mesh_encoder.load_state_dict(torch.load(args.name + "/" + args.name + "_mesh_parameters.pt"))
-val_dataset = torch.load("dataset/processed/val_set.pt")
-print("Val Accuracy: ", evaluate(val_dataset, desc_encoder, mesh_encoder, device=device))
+
+if __name__ == '__main__':
+    argp = argparse.ArgumentParser()
+    argp.add_argument('name',
+        help="name of routine")
+    # argp.add_argument('graph',
+    #     help="Which graph to run ('GraphSAGE' or 'GAT')",
+    #     choices=["GraphSAGE", "GAT"])
+    argp.add_argument('--descs_per_mesh',
+        help='number of descriptions per each mesh in a batch', type=int, default=5)
+    args = argp.parse_args()
+    device = 'cpu'
+    # init models
+    desc_encoder = DescriptionContextEncoder(128).to(device)
+    desc_encoder.load_state_dict(torch.load(args.name + "/" + args.name + "_desc_parameters.pt"))
+    mesh_encoder = MeshEncoder(128).to(device)
+    mesh_encoder.load_state_dict(torch.load(args.name + "/" + args.name + "_mesh_parameters.pt"))
+    val_dataset = torch.load("dataset/processed/val_set.pt")
+    print("Val Accuracy: ", evaluate(val_dataset, desc_encoder, mesh_encoder, device=device))
 
 
