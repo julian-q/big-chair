@@ -73,11 +73,13 @@ class DescriptionEncoder(nn.Module):
 		else:
 			parsed_samples = [self.parser(desc) for desc in sampled_descs]
 			adj_noun_lists = [self.get_adj_noun(parsed_sample) for parsed_sample in parsed_samples]
-			adj_noun_tokenized = [[self.huggingface_tokenizer(adj_noun, return_tensors='pt', padding='max_length', truncation=True).input_ids
-								  for adj_noun in adj_noun_list] for adj_noun_list in adj_noun_lists]
-			return tokenized, adj_noun_tokenized
 
-	def forward(self, tokenized_descs, adj_noun_tokenized=None):
+			tokenized_adj_noun = [[self.huggingface_tokenizer(adj_noun, return_tensors='pt', padding='max_length', truncation=True).input_ids
+									for adj_noun in adj_noun_list] for adj_noun_list in adj_noun_lists]
+			tokenized_adj_noun = torch.tensor(tokenized_adj_noun).flatten(start_dim=0, end_dim=1)
+			return tokenized, tokenized_adj_noun
+
+	def forward(self, tokenized_descs, tokenized_adj_noun=None):
 		"""
 		Parameters
 		----------
@@ -94,12 +96,14 @@ class DescriptionEncoder(nn.Module):
 		last_hidden_state = self.huggingface_encoder(tokenized_descs).last_hidden_state
 		# define 'global_context' as the hidden output of [EOS]
 		global_context = last_hidden_state[torch.arange(last_hidden_state.shape[0]), tokenized_descs.argmax(dim=1)] # (tokenized_descs == self.eos_token_id).nonzero()]
-		if adj_noun_tokenized != None:
-			last_adj_noun_hidden_state = self.huggingface_encoder(tokenized_descs).last_hidden_state
-			global_adj_noun_context = last_adj_noun_hidden_state[torch.arange(last_hidden_state.shape[0]), tokenized_descs.argmax(dim=1)]
-			global_context = torch.cat([global_context, global_adj_noun_context], dim=0)
+		if tokenized_adj_noun != None:
+			last_adj_noun_hidden_state = self.huggingface_encoder(tokenized_adj_noun).last_hidden_state
+			adj_noun_context = last_adj_noun_hidden_state[torch.arange(last_hidden_state.shape[0]), tokenized_adj_noun.argmax(dim=1)]
+			adj_noun_context = adj_noun_context.reshape([global_context.shape[0], -1])
+			adj_noun_context = (adj_noun_context.sum(dim=1)) / adj_noun_context.shape[1]
+			global_context = torch.cat([global_context, adj_noun_context], dim=0)
 
-		projection = self.text_projection if adj_noun_tokenized == None else self.adj_noun_text_projection
+		projection = self.text_projection if tokenized_adj_noun == None else self.adj_noun_text_projection
 		desc_embeddings = projection(global_context)
 		# normalize
 		desc_embeddings = F.normalize(desc_embeddings, dim=1)
