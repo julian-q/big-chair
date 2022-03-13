@@ -3,7 +3,8 @@ import os
 import random
 import pickle
 
-root = '/Users/julianquevedo/code/text2mesh/dataset'
+#root = '/Users/julianquevedo/code/text2mesh/dataset'
+root = 'C:\\Users\\user\\text2mesh\\dataset'
 
 def bake_objs(obj_class: str):
     obj_folders = []
@@ -19,7 +20,9 @@ def bake_objs(obj_class: str):
     bpy.data.scenes["Scene"].render.bake.use_pass_color = True
     bpy.data.scenes["Scene"].render.bake.target = "VERTEX_COLORS"
 
-    for obj_folder in obj_folders:
+    for obj_folder in reversed(sorted(obj_folders)):
+        if os.path.exists(os.path.join(root, 'annotated_models', obj_class, obj_folder, 'vertex_colors.pickle')):
+            continue
         print('baking', obj_folder)
         filename = os.path.join(root, 'annotated_models', obj_class, obj_folder, 'model.obj')
         imported_object = bpy.ops.import_scene.obj(filepath=filename)
