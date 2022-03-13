@@ -7,6 +7,7 @@ from models import DescriptionEncoder, MeshEncoder
 import random
 from tqdm import tqdm
 import argparse
+import gc
 
 argp = argparse.ArgumentParser()
 argp.add_argument('name',
@@ -34,10 +35,11 @@ def evaluate(eval_dataset, desc_encoder, mesh_encoder, device="cpu"):
 
     eval_dataloader = DataLoader(eval_dataset, batch_size=1, shuffle=False)
 
-    big_logit = torch.empty(0, len(eval_dataset)).to(device)
+    big_logit = torch.empty(len(eval_dataset), len(eval_dataset)).to(device)
+    batch_i_idx = 0
 
     for batch_i in tqdm(eval_dataloader):
-        print(torch.cuda.memory_summary())
+        # print(torch.cuda.memory_summary())
 
         batch_i.to(device)
         batch_descs = batch_i.descs
@@ -50,18 +52,21 @@ def evaluate(eval_dataset, desc_encoder, mesh_encoder, device="cpu"):
         # number (self.descs_per_mesh) of them for each mesh in order to standardize
         # memory usage
 
-        logits_i = torch.ones(desc_embeddings_i.shape[0], 0).to(device)
+        logits_i = torch.empty(desc_embeddings_i.shape[0], len(eval_dataset)).to(device)
+        batch_j_idx = 0
 
         for batch_j in eval_dataloader:
+            pass
             batch_j.to(device)
             batch_meshes = batch_j
 
             mesh_embeddings = mesh_encoder(batch_meshes).to(device)
 
-            logits_j = desc_embeddings_i @ mesh_embeddings.t()
-            logits_i = torch.cat((logits_i, logits_j), dim=1)
+            logits_j = desc_embeddings_i @ mesh_embeddings.T
+            logits_i[:, batch_j_idx:batch_j_idx + len(batch_j)] = logits_j.clone()
+            batch_j_idx += len(batch_j)
 
-        big_logit = torch.cat((big_logit, logits_i), dim=0)
+        big_logit[batch_i_idx:batch_i_idx + desc_embeddings_i.shape[0], :] = logits_i.clone()
         
     n_desc = len(eval_dataloader) * args.descs_per_mesh
     n_mesh = len(eval_dataloader)
