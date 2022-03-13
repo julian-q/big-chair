@@ -79,6 +79,7 @@ class DescriptionContextEncoder(nn.Module):
 			description embeddings 
 			of shape ((BATCH_SIZE * descs_per_mesh) x joint_embed_dim)
 		"""
+		tokenized_descs = self.tokenize(descs)
 		last_hidden_state = self.huggingface_encoder(tokenized_descs).last_hidden_state
 		# define 'global_context' as the hidden output of [EOS]
 		global_context = last_hidden_state[torch.arange(last_hidden_state.shape[0]), tokenized_descs.argmax(dim=1)] # (tokenized_descs == self.eos_token_id).nonzero()]
