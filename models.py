@@ -108,7 +108,7 @@ class DescriptionTextEncoder(nn.Module):
 
 		self.joint_embed_dim = joint_embed_dim
 
-		huggingface_encoder_id = 'distilbert-base-uncased'
+		huggingface_encoder_id = 'openai/clip-vit-base-patch32'
 		self.huggingface_tokenizer = AutoTokenizer.from_pretrained(huggingface_encoder_id)
 		self.huggingface_encoder = AutoModel.from_pretrained(huggingface_encoder_id)
 
