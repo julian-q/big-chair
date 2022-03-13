@@ -5,6 +5,7 @@ dataset/some_annotated_models/
 dataset/annotated_graphs/
 dataset/processed/
 dataset/baked_models/
+dataset/baked_models_cubes/
 2_full_gat/
 dataset/raw
 gat_grad_cache/
