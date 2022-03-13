@@ -70,7 +70,7 @@ class DescriptionContextEncoder(nn.Module):
 		# tokenize descriptions and concatenate them into a 
 		# tensor of shape ((BATCH_SIZE * descs_per_mesh) x model_max_length)
 		tokenized = [self.huggingface_tokenizer(descs, return_tensors='pt', padding='max_length', truncation=True).input_ids
-					 for descs in sampled_descs].to(device)
+					 for descs in sampled_descs]
 		tokenized = torch.cat(tokenized, dim=0).to(device)
 		return tokenized
 
@@ -81,7 +81,7 @@ class DescriptionContextEncoder(nn.Module):
 
 		tokenized_adj_noun = [self.huggingface_tokenizer(adj_nouns, return_tensors='pt', padding='max_length',
 															truncation=True).input_ids
-								for adj_nouns in adj_noun_lists].to(device)
+								for adj_nouns in adj_noun_lists]
 		tokenized_adj_noun = torch.cat(tokenized_adj_noun, dim=0).to(device)
 		return tokenized_adj_noun
 
