@@ -42,10 +42,13 @@ class DescriptionEncoder(nn.Module):
 		adj_noun_str = ""
 		for possible_adj in parsed_sample:
 			if possible_adj.pos == ADJ:
-				if possible_adj.head.pos == NOUN:
-					adj_noun_str += possible_adj.text + " " + possible_adj.head.text
-				elif possible_adj.head.head.pos == NOUN:
-					adj_noun_str += " " + possible_adj.text + " " + possible_adj.head.head.text
+				ancestor = possible_adj.head
+				while (ancestor.dep_ != "ROOT"):
+					if ancestor.pos == NOUN:
+						break
+					ancestor = ancestor.head
+				if ancestor.pos == NOUN:
+					adj_noun_str += " " + possible_adj.text + " " + ancestor.text
 				else:
 					adj_noun_str += " " + possible_adj.text
 		return adj_noun_str
