@@ -14,6 +14,7 @@ import spacy
 from spacy.symbols import NOUN, ADJ
 
 from layers import BatchZERON_GCN, BatchGCNMax
+device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
 class DescriptionContextEncoder(nn.Module):
 	"""
@@ -69,8 +70,8 @@ class DescriptionContextEncoder(nn.Module):
 		# tokenize descriptions and concatenate them into a 
 		# tensor of shape ((BATCH_SIZE * descs_per_mesh) x model_max_length)
 		tokenized = [self.huggingface_tokenizer(descs, return_tensors='pt', padding='max_length', truncation=True).input_ids
-					 for descs in sampled_descs]
-		tokenized = torch.cat(tokenized, dim=0)
+					 for descs in sampled_descs].to(device)
+		tokenized = torch.cat(tokenized, dim=0).to(device)
 		return tokenized
 
 	def adj_noun_tokenize(self, sampled_descs):
@@ -80,8 +81,8 @@ class DescriptionContextEncoder(nn.Module):
 
 		tokenized_adj_noun = [self.huggingface_tokenizer(adj_nouns, return_tensors='pt', padding='max_length',
 															truncation=True).input_ids
-								for adj_nouns in adj_noun_lists]
-		tokenized_adj_noun = torch.cat(tokenized_adj_noun, dim=0)
+								for adj_nouns in adj_noun_lists].to(device)
+		tokenized_adj_noun = torch.cat(tokenized_adj_noun, dim=0).to(device)
 		return tokenized_adj_noun
 
 	def forward(self, descs):
