@@ -11,8 +11,9 @@ import random
 import os
 from argparse import ArgumentParser
 from typing import List
-from evaluate_grad_cache import evaluate
+from evaluate_big_embeddings import evaluate
 torch.autograd.set_detect_anomaly(True)
+import sys
 
 argp = ArgumentParser()
 argp.add_argument('name',
@@ -25,7 +26,7 @@ argp.add_argument('--adj_noun',
 argp.add_argument('--epoch',
 	help='number of epochs', type=int, default=100)
 argp.add_argument('--batch_size',
-	help='batch size', type=int, default=100)
+	help='batch size', type=int, default=200)
 argp.add_argument('--sub_batch_size',
 	help='batch size', type=int, default=20)
 argp.add_argument('--descs_per_mesh',
@@ -38,36 +39,22 @@ if not os.path.isdir(args.name):
 	os.mkdir(args.name)
 # dataset setup
 
-dataset_root = 'dataset'
-dataset = AnnotatedMeshDataset(dataset_root)
-train_dataloader = DataLoader(dataset, batch_size=args.sub_batch_size, shuffle=True)
+train_set = torch.load(os.path.join('dataset', 'processed', 'train_set.pt'))
+train_dataloader = DataLoader(train_set, batch_size=args.sub_batch_size, shuffle=False)
 
-# train_dataloader = DataLoader(torch.load("dataset/processed/data.pt"), batch_size=args.sub_batch_size, shuffle=False)
+val_set = torch.load(os.path.join('dataset', 'processed', 'val_set.pt'))
 
 device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
 # init models
-# desc_encoder = DescriptionContextEncoder(args.joint_embedding_dim, args.adj_noun).to(device)
 desc_encoder = DescriptionEncoder(args.joint_embedding_dim).to(device)
-# desc_encoder.load_state_dict(torch.load(args.name + "/" + args.name + "_desc_parameters.pt"))
-# mesh_encoder = MeshEncoder(args.joint_embedding_dim).to(device)
 
 # 6 is input dim because we have 3 for vertex positions and 3 for vertex colors
-# mesh_encoder = HierarchicalMeshEncoder(6, args.joint_embedding_dim).to(device)
 mesh_encoder = HierarchicalMeshEncoder(6, args.joint_embedding_dim).to(device)
 
-# mesh_encoder.load_state_dict(torch.load(args.name + "/" + args.name + "_mesh_parameters.pt"))
 contrastive_loss = ContrastiveLoss().to(device)
 
 def split_inputs(model_input, chunk_size):
-	# if isinstance(model_input, torch.Tensor):
-	# 		return list(model_input.split(chunk_size, dim=0))
-	# elif isinstance(model_input, list) and all(isinstance(x, Data) for x in model_input):
-	# 	return model_input
-	# elif isinstance(model_input, List[List[List[str]]]):
-	# 	return model_input
-	# else:
-	# 	raise NotImplementedError
 	return model_input
 
 # gradient caching
@@ -97,56 +84,48 @@ for epoch in range(args.epoch):
 	mesh_encoder.train()
 	contrastive_loss.train()
 
-	epoch_acc = evaluate(dataset[:100], desc_encoder.cpu(), mesh_encoder.cpu(), args.descs_per_mesh, device="cpu")
-	print('training accuracy:', epoch_acc)
-	train_accs.append(epoch_acc)
-
-	mesh_encoder.to(device)
-	desc_encoder.to(device)
-
 	batch = []
 	i_batch = 0
 	for sub_batch in train_dataloader:
 		sub_batch.to(device)
 		batch.append(sub_batch)
 
-		if len(batch) == args.batch_size // args.sub_batch_size:
+		if len(batch) >= args.batch_size // args.sub_batch_size:
 			optimizer.zero_grad()
-			
+
 			batch_descs, batch_meshes = [sub_batch.descs for sub_batch in batch], batch
-			# since each mesh may have differing numbers of descriptions, we sample a fixed
-			# number (self.descs_per_mesh) of them for each mesh in order to standardize
-			# memory usage
 			sampled_descs = [[random.choices(descs, k=args.descs_per_mesh) for descs in sub_batch_descs]
 							 for sub_batch_descs in batch_descs]
-			# tokenized_descs = torch.cat([desc_encoder.tokenize(sub_batch_descs)
-			# 							  for sub_batch_descs in sampled_descs],
-			# 							  dim=0).to(device)
-			# desc_encoder.tokenized_adj_noun = torch.cat([desc_encoder.adj_noun_tokenize(sub_batch_descs)
-			# 							 for sub_batch_descs in sampled_descs],
-			# 							 dim=0).to(device)
-			loss = gc(sampled_descs, batch_meshes) # GradCache takes care of backprop
+
+			loss = gc(sampled_descs, batch_meshes).detach().cpu() # GradCache takes care of backprop
 			print(loss.item())
 			average_loss = loss / (len(batch) * args.sub_batch_size)
 			losses.append(average_loss)
-			torch.save(losses, args.name + "/" + args.name + "_loss.pt")
+			torch.save(losses, os.path.join(args.name, args.name + "_loss.pt"))
+
 			optimizer.step()
 
-			# print(torch.cuda.memory_summary())
+			print(torch.cuda.memory_summary())
 
 			batch = []
-	torch.save(desc_encoder.state_dict(), args.name + "/" + args.name + "_desc_parameters.pt")
-	torch.save(mesh_encoder.state_dict(), args.name + "/" + args.name + "_mesh_parameters.pt")
-	torch.save(contrastive_loss.state_dict(), args.name + "/" + args.name + "_loss_parameters.pt")
+
+	epoch_acc = evaluate(train_set[:len(val_set)], desc_encoder, mesh_encoder, args.descs_per_mesh, device="cuda:0")
+	print('training accuracy:', epoch_acc)
+	train_accs.append(epoch_acc)
+	
+	torch.save(desc_encoder.state_dict(), os.path.join(args.name, args.name + "_desc_parameters.pt"))
+	torch.save(mesh_encoder.state_dict(),os.path.join(args.name, args.name + "_mesh_parameters.pt"))
+	torch.save(contrastive_loss.state_dict(), os.path.join(args.name, args.name + "_loss_parameters.pt"))
 
 	torch.save(losses, os.path.join(args.name, args.name + "_loss.pt"))
 	torch.save(train_accs, os.path.join(args.name, args.name + "_train_accs.pt"))
 
 
 print("done!")
-torch.save(desc_encoder.state_dict(), args.name + "/" + args.name + "_desc_parameters.pt")
-torch.save(mesh_encoder.state_dict(), args.name + "/" + args.name + "_mesh_parameters.pt")
-torch.save(contrastive_loss.state_dict(), args.name + "/" + args.name + "_loss_parameters.pt")
+
+print('final evaluation')
+val_acc = evaluate(val_set, desc_encoder, mesh_encoder, args.descs_per_mesh, device="cuda:0")
+torch.save(val_acc, os.path.join(args.name, args.name + '_val_acc.pt'))
 
 
 
