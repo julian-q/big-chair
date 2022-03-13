@@ -4,12 +4,13 @@ from torch import optim
 from dataset_pyg import AnnotatedMeshDataset
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
-from models import MeshEncoder, DescriptionEncoder, HierarchicalMeshEncoder
+from models import MeshEncoder, DescriptionContextEncoder, HierarchicalMeshEncoder
 from loss import ContrastiveLoss
 from grad_cache import GradCache
 import random
 import os
 from argparse import ArgumentParser
+from typing import List
 torch.autograd.set_detect_anomaly(True)
 
 argp = ArgumentParser()
@@ -43,7 +44,7 @@ train_dataloader = DataLoader(torch.load("dataset/processed/train_set.pt"), batc
 device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
 # init models
-desc_encoder = DescriptionEncoder(args.joint_embedding_dim, args.adj_noun).to(device)
+desc_encoder = DescriptionContextEncoder(args.joint_embedding_dim, args.adj_noun).to(device)
 # desc_encoder.load_state_dict(torch.load(args.name + "/" + args.name + "_desc_parameters.pt"))
 # mesh_encoder = MeshEncoder(args.joint_embedding_dim).to(device)
 
@@ -51,15 +52,17 @@ desc_encoder = DescriptionEncoder(args.joint_embedding_dim, args.adj_noun).to(de
 mesh_encoder = HierarchicalMeshEncoder(6, args.joint_embedding_dim).to(device)
 # mesh_encoder.load_state_dict(torch.load(args.name + "/" + args.name + "_mesh_parameters.pt"))
 contrastive_loss = ContrastiveLoss().to(device)
-contrastive_loss.load_state_dict(torch.load(args.name + "/" + args.name + "_loss_parameters.pt"))
 
 def split_inputs(model_input, chunk_size):
-	if isinstance(model_input, torch.Tensor):
-			return list(model_input.split(chunk_size, dim=0))
-	elif isinstance(model_input, list) and all(isinstance(x, Data) for x in model_input):
-		return model_input
-	else:
-		raise NotImplementedError
+	# if isinstance(model_input, torch.Tensor):
+	# 		return list(model_input.split(chunk_size, dim=0))
+	# elif isinstance(model_input, list) and all(isinstance(x, Data) for x in model_input):
+	# 	return model_input
+	# elif isinstance(model_input, List[List[List[str]]]):
+	# 	return model_input
+	# else:
+	# 	raise NotImplementedError
+	return model_input
 
 # gradient caching
 gc = GradCache(models=[desc_encoder, mesh_encoder],
@@ -98,13 +101,13 @@ for epoch in range(args.epoch):
 			# memory usage
 			sampled_descs = [[random.choices(descs, k=args.descs_per_mesh) for descs in sub_batch_descs]
 							 for sub_batch_descs in batch_descs]
-			tokenized_descs = torch.cat([desc_encoder.tokenize(sub_batch_descs) 
-										 for sub_batch_descs in sampled_descs],
-										 dim=0).to(device)
-			desc_encoder.tokenized_adj_noun = torch.cat([desc_encoder.adj_noun_tokenize(sub_batch_descs)
-										 for sub_batch_descs in sampled_descs],
-										 dim=0).to(device)
-			loss = gc(tokenized_descs, batch_meshes) # GradCache takes care of backprop
+			# tokenized_descs = torch.cat([desc_encoder.tokenize(sub_batch_descs)
+			# 							  for sub_batch_descs in sampled_descs],
+			# 							  dim=0).to(device)
+			# desc_encoder.tokenized_adj_noun = torch.cat([desc_encoder.adj_noun_tokenize(sub_batch_descs)
+			# 							 for sub_batch_descs in sampled_descs],
+			# 							 dim=0).to(device)
+			loss = gc(sampled_descs, batch_meshes) # GradCache takes care of backprop
 			print(loss.item())
 			average_loss = loss / (len(batch) * args.sub_batch_size)
 			losses.append(average_loss)
