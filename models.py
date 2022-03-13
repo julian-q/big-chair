@@ -10,16 +10,21 @@ from torch_geometric.nn import GraphSAGE, GCNConv, GAT, GATConv, TopKPooling, gl
 from torch_geometric.data import Data
 from transformers import AutoTokenizer, AutoModel, CLIPProcessor, Trainer, TrainingArguments
 
+import spacy
+from spacy.symbols import NOUN, ADJ
+
 from layers import BatchZERON_GCN, BatchGCNMax
 
 class DescriptionEncoder(nn.Module):
 	"""
 	uses an encoder from Hugging Face to embed descriptions
 	"""
-	def __init__(self, joint_embed_dim: int):
+	def __init__(self, joint_embed_dim: int, adj_noun=False):
 		super().__init__()
 
 		self.joint_embed_dim = joint_embed_dim
+
+
 
 		huggingface_encoder_id = 'distilbert-base-uncased'
 		self.huggingface_tokenizer = AutoTokenizer.from_pretrained(huggingface_encoder_id)
@@ -28,6 +33,25 @@ class DescriptionEncoder(nn.Module):
 		self.eos_token_id = self.huggingface_tokenizer.eos_token_id
 		self.text_projection = nn.Linear(self.huggingface_encoder.config.hidden_size,
 										 joint_embed_dim)
+		self.adj_noun = adj_noun
+		if (self.adj_noun):
+			self.parser = spacy.load("en_core_web_sm")
+			self.adj_noun_text_projection = nn.Linear(2 * self.huggingface_encoder.config.hidden_size, joint_embed_dim)
+
+	def get_adj_noun(self, parsed_sample):
+		adj_noun_str = ""
+		for possible_adj in parsed_sample:
+			if possible_adj.pos == ADJ:
+				ancestor = possible_adj.head
+				while (ancestor.dep_ != "ROOT"):
+					if ancestor.pos == NOUN:
+						break
+					ancestor = ancestor.head
+				if ancestor.pos == NOUN:
+					adj_noun_str += " " + possible_adj.text + " " + ancestor.text
+				else:
+					adj_noun_str += " " + possible_adj.text
+		return adj_noun_str
 
 	def tokenize(self, sampled_descs):
 		"""
@@ -49,7 +73,18 @@ class DescriptionEncoder(nn.Module):
 		tokenized = torch.cat(tokenized, dim=0)
 		return tokenized
 
-	def forward(self, tokenized_descs):
+	def adj_noun_tokenize(self, sampled_descs):
+		assert(self.adj_noun)
+		parsed_samples = [[self.parser(desc) for desc in sublist] for sublist in sampled_descs]
+		adj_noun_lists = [[self.get_adj_noun(parsed_sample) for parsed_sample in sublist] for sublist in parsed_samples]
+
+		tokenized_adj_noun = [self.huggingface_tokenizer(adj_nouns, return_tensors='pt', padding='max_length',
+															truncation=True).input_ids
+								for adj_nouns in adj_noun_lists]
+		tokenized_adj_noun = torch.cat(tokenized_adj_noun, dim=0)
+		return tokenized_adj_noun
+
+	def forward(self, descs):
 		"""
 		Parameters
 		----------
@@ -63,10 +98,20 @@ class DescriptionEncoder(nn.Module):
 			description embeddings 
 			of shape ((BATCH_SIZE * descs_per_mesh) x joint_embed_dim)
 		"""
+		tokenized_descs = self.tokenize(descs)
 		last_hidden_state = self.huggingface_encoder(tokenized_descs).last_hidden_state
 		# define 'global_context' as the hidden output of [EOS]
 		global_context = last_hidden_state[torch.arange(last_hidden_state.shape[0]), tokenized_descs.argmax(dim=1)] # (tokenized_descs == self.eos_token_id).nonzero()]
-		desc_embeddings = self.text_projection(global_context)
+		if self.adj_noun:
+			tokenized_adj_noun = self.adj_noun_tokenize(descs)
+			last_adj_noun_hidden_state = self.huggingface_encoder(tokenized_adj_noun).last_hidden_state
+			adj_noun_context = last_adj_noun_hidden_state[torch.arange(last_hidden_state.shape[0]), tokenized_adj_noun.argmax(dim=1)]
+			# adj_noun_context = adj_noun_context.reshape([global_context.shape[0], -1])
+			adj_noun_context = (torch.sum(adj_noun_context, dim=1)) / adj_noun_context.shape[1]  # average
+			global_context = torch.cat([global_context, adj_noun_context], dim=0)
+
+		projection = self.text_projection if self.adj_noun else self.adj_noun_text_projection
+		desc_embeddings = projection(global_context)
 		# normalize
 		desc_embeddings = F.normalize(desc_embeddings, dim=1)
 		return desc_embeddings
@@ -464,8 +509,8 @@ def build_model(state_dict: dict):
 	model.load_state_dict(state_dict)
 	return model.eval()
 
-## baseline text encoder
-class TextEncoder(nn.Module):
+## baseline text encoder = NOT_USING
+class AdjNounEncoder(nn.Module):
 
 	def __init__(self, vocab_size, embedding_dim, hidden_dim, output_dim):
 		super().__init__()

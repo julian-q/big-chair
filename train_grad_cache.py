@@ -18,6 +18,8 @@ argp.add_argument('name',
 # argp.add_argument('--gnn',
 # 	help='Which gnn to run ("GraphSAGE" or "GAT")',
 # 	choices=['GraphSAGE', 'GAT'], default='GAT')
+argp.add_argument('--adj_noun',
+	help='use adj/noun pairs?', type=bool, default=False)
 argp.add_argument('--epoch',
 	help='number of epochs', type=int, default=100)
 argp.add_argument('--batch_size',
@@ -41,7 +43,7 @@ train_dataloader = DataLoader(torch.load("dataset/processed/train_set.pt"), batc
 device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
 # init models
-desc_encoder = DescriptionEncoder(args.joint_embedding_dim).to(device)
+desc_encoder = DescriptionEncoder(args.joint_embedding_dim, args.adj_noun).to(device)
 # desc_encoder.load_state_dict(torch.load(args.name + "/" + args.name + "_desc_parameters.pt"))
 # mesh_encoder = MeshEncoder(args.joint_embedding_dim).to(device)
 
@@ -97,6 +99,9 @@ for epoch in range(args.epoch):
 			sampled_descs = [[random.choices(descs, k=args.descs_per_mesh) for descs in sub_batch_descs]
 							 for sub_batch_descs in batch_descs]
 			tokenized_descs = torch.cat([desc_encoder.tokenize(sub_batch_descs) 
+										 for sub_batch_descs in sampled_descs],
+										 dim=0).to(device)
+			desc_encoder.tokenized_adj_noun = torch.cat([desc_encoder.adj_noun_tokenize(sub_batch_descs)
 										 for sub_batch_descs in sampled_descs],
 										 dim=0).to(device)
 			loss = gc(tokenized_descs, batch_meshes) # GradCache takes care of backprop
