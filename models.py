@@ -152,7 +152,7 @@ class DescriptionEncoder(nn.Module):
 		tokenized = torch.cat(tokenized, dim=0)
 		return tokenized
 
-	def forward(self, sampled_descs, device='cuda'):
+	def forward(self, sampled_descs):
 		"""
 		Parameters
 		----------
@@ -168,7 +168,7 @@ class DescriptionEncoder(nn.Module):
 			of shape ((BATCH_SIZE * descs_per_mesh) x joint_embed_dim)
 		"""
 		just_descs = [[desc['full_desc'] for desc in mesh_descs] for mesh_descs in sampled_descs]
-		tokenized_descs = self.tokenize(just_descs).to(device)
+		tokenized_descs = self.tokenize(just_descs).cuda()
 		last_hidden_state = self.huggingface_encoder(tokenized_descs).last_hidden_state
 		# define 'global_context' as the hidden output of [EOS]
 		global_context = last_hidden_state[torch.arange(last_hidden_state.shape[0]), tokenized_descs.argmax(

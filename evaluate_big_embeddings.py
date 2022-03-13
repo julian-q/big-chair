@@ -26,21 +26,21 @@ def evaluate(eval_dataset, desc_encoder, mesh_encoder, descs_per_mesh, batch_siz
 
     eval_dataloader = DataLoader(eval_dataset, batch_size=batch_size, shuffle=False)
 
-    desc_embeddings = torch.empty(len(eval_dataset) * descs_per_mesh, 128).to(device)
-    mesh_embeddings = torch.empty(len(eval_dataset), 128).to(device)
+    desc_embeddings = torch.empty(len(eval_dataset) * descs_per_mesh, 128).cpu()
+    mesh_embeddings = torch.empty(len(eval_dataset), 128).cpu()
     desc_index = 0
     mesh_index = 0
 
     for batch in tqdm(eval_dataloader):
-        batch.to(device)
+        batch.cuda()
         batch_descs = batch.descs
-        sampled_descs = [random.choices(descs, k=args.descs_per_mesh) for descs in batch_descs]
+        sampled_descs = [random.choices(descs, k=descs_per_mesh) for descs in batch_descs]
             
-        desc_embeddings_i = desc_encoder(sampled_descs).to(device)
+        desc_embeddings_i = desc_encoder(sampled_descs).detach().cpu().clone()
         desc_embeddings[desc_index:desc_index + desc_embeddings_i.shape[0], :] = desc_embeddings_i
         desc_index += desc_embeddings_i.shape[0]
 
-        mesh_embeddings_i = mesh_encoder(batch).to(device)
+        mesh_embeddings_i = mesh_encoder(batch).detach().cpu().clone()
         mesh_embeddings[mesh_index:mesh_index + mesh_embeddings_i.shape[0], :] = mesh_embeddings_i
         mesh_index += mesh_embeddings_i.shape[0]
 
