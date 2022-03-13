@@ -103,6 +103,7 @@ class DescriptionContextEncoder(nn.Module):
 		last_hidden_state = self.huggingface_encoder(tokenized_descs).last_hidden_state
 		# define 'global_context' as the hidden output of [EOS]
 		global_context = last_hidden_state[torch.arange(last_hidden_state.shape[0]), tokenized_descs.argmax(dim=1)] # (tokenized_descs == self.eos_token_id).nonzero()]
+		print(global_context.shape)
 		if self.adj_noun:
 			tokenized_adj_noun = self.adj_noun_tokenize(descs)
 
