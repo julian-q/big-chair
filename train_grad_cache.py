@@ -100,7 +100,7 @@ for epoch in range(args.epoch):
 			# number (self.descs_per_mesh) of them for each mesh in order to standardize
 			# memory usage
 			sampled_descs = [[random.choices(descs, k=args.descs_per_mesh) for descs in sub_batch_descs]
-							 for sub_batch_descs in batch_descs]
+							 for sub_batch_descs in batch_descs].to(device)
 			# tokenized_descs = torch.cat([desc_encoder.tokenize(sub_batch_descs)
 			# 							  for sub_batch_descs in sampled_descs],
 			# 							  dim=0).to(device)
