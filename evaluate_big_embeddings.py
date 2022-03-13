@@ -20,11 +20,11 @@ def top_5_eval(logits_per_text, targets_per_text, k=5):
     target_topk = torch.gather(targets_per_text, dim=1, index=index_topk)
     return (torch.sum(torch.sum(target_topk, dim=1) > 0)) / target_topk.shape[0]
 
-def evaluate(eval_dataset, desc_encoder, mesh_encoder, descs_per_mesh, device="cpu"):
+def evaluate(eval_dataset, desc_encoder, mesh_encoder, descs_per_mesh, batch_size=1, device="cpu"):
     desc_encoder.eval()
     mesh_encoder.eval()
 
-    eval_dataloader = DataLoader(eval_dataset, batch_size=1, shuffle=False)
+    eval_dataloader = DataLoader(eval_dataset, batch_size=batch_size, shuffle=False)
 
     desc_embeddings = torch.empty(len(eval_dataset) * descs_per_mesh, 128).to(device)
     mesh_embeddings = torch.empty(len(eval_dataset), 128).to(device)
