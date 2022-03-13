@@ -283,9 +283,6 @@ class HierarchicalMeshEncoder(nn.Module):
 		mean_pool = global_mean_pool(x, batch)
 		max_pool = global_max_pool(x, batch)
 
-		print(mean_pool.shape)
-		print(max_pool.shape)
-
 		x = torch.cat([mean_pool, max_pool], dim=1)
 		x = self.linear(x)
 

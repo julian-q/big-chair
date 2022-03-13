@@ -49,7 +49,9 @@ desc_encoder = DescriptionContextEncoder(args.joint_embedding_dim, args.adj_noun
 # mesh_encoder = MeshEncoder(args.joint_embedding_dim).to(device)
 
 # 6 is input dim because we have 3 for vertex positions and 3 for vertex colors
-mesh_encoder = HierarchicalMeshEncoder(6, args.joint_embedding_dim).to(device)
+# mesh_encoder = HierarchicalMeshEncoder(6, args.joint_embedding_dim).to(device)
+mesh_encoder = HierarchicalMeshEncoder(3, args.joint_embedding_dim).to(device)
+
 # mesh_encoder.load_state_dict(torch.load(args.name + "/" + args.name + "_mesh_parameters.pt"))
 contrastive_loss = ContrastiveLoss().to(device)
 
