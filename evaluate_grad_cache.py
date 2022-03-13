@@ -3,10 +3,11 @@ from lib2to3.pgen2 import token
 import torch
 from dataset_pyg import AnnotatedMeshDataset
 from torch_geometric.loader import DataLoader
-from models import DescriptionEncoder, MeshEncoder
+from models import DescriptionContextEncoder, MeshEncoder, CLIP_pretrained, SimpleMeshEncoder
 import random
 from tqdm import tqdm
 import argparse
+import os
 import gc
 
 argp = argparse.ArgumentParser()
@@ -63,10 +64,11 @@ def evaluate(eval_dataset, desc_encoder, mesh_encoder, device="cpu"):
             mesh_embeddings = mesh_encoder(batch_meshes).to(device)
 
             logits_j = desc_embeddings_i @ mesh_embeddings.T
-            logits_i[:, batch_j_idx:batch_j_idx + len(batch_j)] = logits_j.clone()
+            logits_i[:, batch_j_idx:batch_j_idx + logits_j.shape[1]] = logits_j.clone()
             batch_j_idx += len(batch_j)
 
-        big_logit[batch_i_idx:batch_i_idx + desc_embeddings_i.shape[0], :] = logits_i.clone()
+        big_logit[batch_i_idx:batch_i_idx + logits_i.shape[0], :] = logits_i.clone()
+        batch_i_idx += logits_i.shape[0]
         
     n_desc = len(eval_dataloader) * args.descs_per_mesh
     n_mesh = len(eval_dataloader)
@@ -84,10 +86,12 @@ def evaluate(eval_dataset, desc_encoder, mesh_encoder, device="cpu"):
 
 device = 'cpu'
 # init models
-desc_encoder = DescriptionEncoder(128).to(device)
+
+desc_encoder = DescriptionContextEncoder(128).to(device)
 desc_encoder.load_state_dict(torch.load(args.name + "/" + args.name + "_desc_parameters.pt"))
 mesh_encoder = MeshEncoder(128).to(device)
 mesh_encoder.load_state_dict(torch.load(args.name + "/" + args.name + "_mesh_parameters.pt"))
 val_dataset = torch.load("dataset/processed/val_set.pt")
 print("Val Accuracy: ", evaluate(val_dataset, desc_encoder, mesh_encoder, device=device))
+
 

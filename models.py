@@ -98,7 +98,7 @@ class DescriptionContextEncoder(nn.Module):
 		return desc_embeddings
 
 
-class DescriptionTextEncoder(nn.Module):
+class DescriptionEncoder(nn.Module):
 	"""
 	uses an encoder from Hugging Face to embed descriptions
 	"""
@@ -170,7 +170,7 @@ class DescriptionTextEncoder(nn.Module):
 		# define 'global_context' as the hidden output of [EOS]
 		global_context = last_hidden_state[torch.arange(last_hidden_state.shape[0]), tokenized_descs.argmax(
 			dim=1)]  # (tokenized_descs == self.eos_token_id).nonzero()]
-		desc_embeddings = projection(global_context)
+		desc_embeddings = self.text_projection(global_context)
 		# normalize
 		desc_embeddings = F.normalize(desc_embeddings, dim=1)
 		return desc_embeddings
@@ -390,7 +390,7 @@ class CLIP_pretrained(nn.Module):
 		x = self.text_projection(torch.sum(x, dim=1))
 		return x
 
-	def forward(self, batched_meshes, text, desc2mesh):
+	def forward(self, batched_meshes, text):
 		mesh_features = self.encode_mesh(batched_meshes)
 
 		# mesh_features = torch.eye(10, self.joint_embed_dim)
