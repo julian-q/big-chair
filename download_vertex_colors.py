@@ -3,14 +3,14 @@ import os
 import random
 import pickle
 
-root = 'C:\\Users\\user\\text2mesh\\dataset\\'
+root = '/Users/julianquevedo/code/text2mesh/dataset'
 
 def bake_objs(obj_class: str):
     obj_folders = []
-    for obj_id in os.listdir(root + f'annotated_models\\{obj_class}'):
+    for obj_id in os.listdir(os.path.join(root, 'annotated_models', obj_class)):
         obj_folders.append(os.path.join(obj_id))
 
-    outDir = root + f'baked_models\\{obj_class}'
+#    outDir = root + f'baked_models\\{obj_class}'
 
     bpy.data.scenes["Scene"].render.engine = "CYCLES"
     bpy.data.scenes["Scene"].cycles.bake_type = "DIFFUSE"
@@ -61,14 +61,12 @@ def bake_objs(obj_class: str):
                 pos = tuple(mesh.vertices[v].co)
                 col = [c[0], c[1], c[2]]
                 pos2col[pos] = col
-#                print("Vertex {0} has Color {1}".format(v, (c[0], c[1], c[2])))
                 
-#        print(list(pos2col.items())[:10])
-        with open(f'C:\\Users\\user\\text2mesh\\dataset\\annotated_models\\{obj_class}\\' + obj_folder + '\\vertex_colors.pickle', 'wb') as pos2col_file:
+        with open(os.path.join(root, 'annotated_models', obj_class, obj_folder, 'vertex_colors.pickle'), 'wb') as pos2col_file:
             pickle.dump(pos2col, pos2col_file, protocol=pickle.HIGHEST_PROTOCOL)
         
 #        saved = {}
-#        with open(f'C:\\Users\\user\\text2mesh\\dataset\\annotated_models\\{obj_class}\\' + obj_folder + '\\vertex_colors.pickle', 'rb') as pos2col_file:
+#        with open(os.path.join(root, 'annotated_models', obj_class, obj_folder, vertex_colors.pickle)', 'rb') as pos2col_file:
 #            saved = pickle.load(pos2col_file)
 #            
 #        print(list(saved.items())[:10])
@@ -81,5 +79,5 @@ def bake_objs(obj_class: str):
         bpy.ops.object.delete()
 
 
-bake_objs('Table')
 bake_objs('Chair')
+bake_objs('Table')
