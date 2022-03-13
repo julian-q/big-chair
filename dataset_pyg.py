@@ -26,16 +26,38 @@ class AnnotatedMeshDataset(InMemoryDataset):
     def processed_file_names(self):
         return 'data.pt'
 
+    def get_adj_noun(self, parsed_sample):
+        adj_noun_str = ""
+        for possible_adj in parsed_sample:
+            if possible_adj.pos == ADJ:
+                ancestor = possible_adj.head
+                while (ancestor.dep_ != "ROOT"):
+                    if ancestor.pos == NOUN:
+                        break
+                    ancestor = ancestor.head
+                if ancestor.pos == NOUN:
+                    adj_noun_str += " " + possible_adj.text + " " + ancestor.text
+                else:
+                    adj_noun_str += " " + possible_adj.text
+        return adj_noun_str
+
     def process(self):
+        # processing noun-adj pairs
+        adj_noun = [[self.get_adj_noun(desc) for desc in descriptions] for descriptions in self.model2desc.values()]
+
+
+
+        # processing graphs
         graphs = []
         for obj in tqdm(self.raw_file_names):
             mesh = trimesh.load(os.path.join(self.raw_dir, obj), force='mesh')
             model_id = obj.split('.')[0]
-            descs = self.model2desc[model_id]
+            full_descs = self.model2desc[model_id]
+            adj_nouns = [self.get_adj_noun(desc) for desc in full_descs]
+            descs = [{'full_desc': desc, 'adj_noun': adj_noun} for desc, adj_noun in zip(full_descs, adj_nouns)]
             # convert trimesh into graph, where the vertex positions are
             # the node features! we also attach an attribute that will
             # store the natural language descriptions
-
             unique_edges = mesh.edges_unique
             reversed_unique_edges = np.fliplr(unique_edges)
             edges = np.concatenate([unique_edges, reversed_unique_edges])
@@ -55,3 +77,4 @@ class AnnotatedMeshDataset(InMemoryDataset):
             graphs.append(g)
         self.data, self.slices = self.collate(graphs)
         torch.save((self.data, self.slices), self.processed_paths[0])
+

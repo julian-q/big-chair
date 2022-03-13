@@ -14,8 +14,9 @@ import spacy
 from spacy.symbols import NOUN, ADJ
 
 from layers import BatchZERON_GCN, BatchGCNMax
+device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
-class DescriptionEncoder(nn.Module):
+class DescriptionContextEncoder(nn.Module):
 	"""
 	uses an encoder from Hugging Face to embed descriptions
 	"""
@@ -23,6 +24,8 @@ class DescriptionEncoder(nn.Module):
 		super().__init__()
 
 		self.joint_embed_dim = joint_embed_dim
+
+
 
 		huggingface_encoder_id = 'openai/clip-vit-base-patch32'
 		self.huggingface_tokenizer = AutoTokenizer.from_pretrained(huggingface_encoder_id)
@@ -47,12 +50,22 @@ class DescriptionEncoder(nn.Module):
 		"""
 		# tokenize descriptions and concatenate them into a 
 		# tensor of shape ((BATCH_SIZE * descs_per_mesh) x model_max_length)
-		tokenized = [self.huggingface_tokenizer(descs, return_tensors='pt', padding='max_length', truncation=True).input_ids
+		tokenized = [self.huggingface_tokenizer([desc["full_desc"] for desc in descs], return_tensors='pt', padding='max_length', truncation=True).input_ids
 					 for descs in sampled_descs]
-		tokenized = torch.cat(tokenized, dim=0)
+		tokenized = torch.cat(tokenized, dim=0).to(device)
 		return tokenized
 
-	def forward(self, tokenized_descs):
+	def adj_noun_tokenize(self, sampled_descs):
+		assert(self.adj_noun)
+		adj_noun_lists = [[desc["adj_noun"] for desc in descs] for descs in sampled_descs]
+
+		tokenized_adj_noun = [self.huggingface_tokenizer(adj_nouns, return_tensors='pt', padding='max_length',
+															truncation=True).input_ids
+								for adj_nouns in adj_noun_lists]
+		tokenized_adj_noun = torch.cat(tokenized_adj_noun, dim=0).to(device)
+		return tokenized_adj_noun
+
+	def forward(self, descs):
 		"""
 		Parameters
 		----------
@@ -69,7 +82,95 @@ class DescriptionEncoder(nn.Module):
 		last_hidden_state = self.huggingface_encoder(tokenized_descs).last_hidden_state
 		# define 'global_context' as the hidden output of [EOS]
 		global_context = last_hidden_state[torch.arange(last_hidden_state.shape[0]), tokenized_descs.argmax(dim=1)] # (tokenized_descs == self.eos_token_id).nonzero()]
-		desc_embeddings = self.text_projection(global_context)
+		print(global_context.shape)
+		if self.adj_noun:
+			tokenized_adj_noun = self.adj_noun_tokenize(descs)
+
+			last_adj_noun_hidden_state = self.huggingface_encoder(tokenized_adj_noun).last_hidden_state
+			adj_noun_context = last_adj_noun_hidden_state[torch.arange(last_hidden_state.shape[0]), tokenized_adj_noun.argmax(dim=1)]
+			# adj_noun_context = adj_noun_context.reshape([global_context.shape[0], -1])
+			global_context = torch.cat([global_context, adj_noun_context], dim=1)
+
+		projection = self.adj_noun_text_projection if self.adj_noun else self.text_projection
+		desc_embeddings = projection(global_context)
+		# normalize
+		desc_embeddings = F.normalize(desc_embeddings, dim=1)
+		return desc_embeddings
+
+
+class DescriptionTextEncoder(nn.Module):
+	"""
+	uses an encoder from Hugging Face to embed descriptions
+	"""
+
+	def __init__(self, joint_embed_dim: int):
+		super().__init__()
+
+		self.joint_embed_dim = joint_embed_dim
+
+		huggingface_encoder_id = 'distilbert-base-uncased'
+		self.huggingface_tokenizer = AutoTokenizer.from_pretrained(huggingface_encoder_id)
+		self.huggingface_encoder = AutoModel.from_pretrained(huggingface_encoder_id)
+
+		self.eos_token_id = self.huggingface_tokenizer.eos_token_id
+		self.text_projection = nn.Linear(self.huggingface_encoder.config.hidden_size,
+										 joint_embed_dim)
+
+	def get_adj_noun(self, parsed_sample):
+		adj_noun_str = ""
+		for possible_adj in parsed_sample:
+			if possible_adj.pos == ADJ:
+				ancestor = possible_adj.head
+				while (ancestor.dep_ != "ROOT"):
+					if ancestor.pos == NOUN:
+						break
+					ancestor = ancestor.head
+				if ancestor.pos == NOUN:
+					adj_noun_str += " " + possible_adj.text + " " + ancestor.text
+				else:
+					adj_noun_str += " " + possible_adj.text
+		return adj_noun_str
+
+	def tokenize(self, sampled_descs):
+		"""
+		Parameters
+		----------
+		sampled_descs: list of lists
+			a nested list of descs_per_mesh sampled descriptions for each mesh in the batch
+
+		Returns
+		-------
+		tokenized: torch.Tensor
+			tokenized descriptions concatenated to shape
+			((BATCH_SIZE * descs_per_mesh) x model_max_length)
+		"""
+		# tokenize descriptions and concatenate them into a
+		# tensor of shape ((BATCH_SIZE * descs_per_mesh) x model_max_length)
+		tokenized = [
+			self.huggingface_tokenizer(descs, return_tensors='pt', padding='max_length', truncation=True).input_ids
+			for descs in sampled_descs]
+		tokenized = torch.cat(tokenized, dim=0)
+		return tokenized
+
+	def forward(self, tokenized_descs):
+		"""
+		Parameters
+		----------
+		tokenized_descs: torch.Tensor
+			tokenized model descriptions as returned by tokenize
+			of shape ((BATCH_SIZE * descs_per_mesh) x model_max_length)
+
+		Returns
+		-------
+		text_embeddings: torch.Tensor
+			description embeddings
+			of shape ((BATCH_SIZE * descs_per_mesh) x joint_embed_dim)
+		"""
+		last_hidden_state = self.huggingface_encoder(tokenized_descs).last_hidden_state
+		# define 'global_context' as the hidden output of [EOS]
+		global_context = last_hidden_state[torch.arange(last_hidden_state.shape[0]), tokenized_descs.argmax(
+			dim=1)]  # (tokenized_descs == self.eos_token_id).nonzero()]
+		desc_embeddings = projection(global_context)
 		# normalize
 		desc_embeddings = F.normalize(desc_embeddings, dim=1)
 		return desc_embeddings
@@ -144,22 +245,23 @@ class HierarchicalMeshEncoder(nn.Module):
 		x = F.elu(x)
 		x = F.dropout(x, p=self.dropout_prob, training=self.training)
 
-		x, edge_index, edge_attr, batch, _ = self.pool1(x, edge_index, edge_attr, batch)
+		x, edge_index, edge_attr, batch, _, _ = self.pool1(x, edge_index, edge_attr, batch.batch)
 
 		x = self.conv2(x, edge_index, edge_attr)
 		x = F.elu(x)
 		x = F.dropout(x, p=self.dropout_prob, training=self.training)
 
-		x, edge_index, _, batch, _ = self.pool2(x, edge_index, edge_attr, batch)
+		x, edge_index, edge_attr, batch, _, _ = self.pool2(x, edge_index, edge_attr, batch)
 
 		x = self.conv3(x, edge_index, edge_attr)
 		x = F.elu(x)
 		x = F.dropout(x, p=self.dropout_prob, training=self.training)
 
-		x, edge_index, _, batch, _ = self.pool3(x, edge_index, edge_attr, batch)
+		x, edge_index, edge_attr, batch, _, _ = self.pool3(x, edge_index, edge_attr, batch)
 
 		mean_pool = global_mean_pool(x, batch)
 		max_pool = global_max_pool(x, batch)
+
 		x = torch.cat([mean_pool, max_pool], dim=1)
 		x = self.linear(x)
 
