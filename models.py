@@ -39,18 +39,18 @@ class DescriptionEncoder(nn.Module):
 			self.adj_noun_text_projection = nn.Linear(2 * self.huggingface_encoder.config.hidden_size, joint_embed_dim)
 
 	def get_adj_noun(self, parsed_sample):
-		adj_noun_list = []
+		adj_noun_str = ""
 		for possible_adj in parsed_sample:
 			if possible_adj.pos == ADJ:
 				if possible_adj.head.pos == NOUN:
-					adj_noun_list.append(possible_adj.text + " " + possible_adj.head.text)
+					adj_noun_str += possible_adj.text + " " + possible_adj.head.text
 				elif possible_adj.head.head.pos == NOUN:
-					adj_noun_list.append(" " + possible_adj.text + " " + possible_adj.head.head.text)
+					adj_noun_str += " " + possible_adj.text + " " + possible_adj.head.head.text
 				else:
-					adj_noun_list.append(" " + possible_adj.text)
-		return adj_noun_list
+					adj_noun_str += " " + possible_adj.text
+		return adj_noun_str
 
-	def tokenize(self, sampled_descs, adj_noun_pairs=None):
+	def tokenize(self, sampled_descs):
 		"""
 		Parameters
 		----------
@@ -68,18 +68,20 @@ class DescriptionEncoder(nn.Module):
 		tokenized = [self.huggingface_tokenizer(descs, return_tensors='pt', padding='max_length', truncation=True).input_ids
 					 for descs in sampled_descs]
 		tokenized = torch.cat(tokenized, dim=0)
-		if adj_noun_pairs == None:
-			return tokenized
-		else:
-			parsed_samples = [self.parser(desc) for desc in sampled_descs]
-			adj_noun_lists = [self.get_adj_noun(parsed_sample) for parsed_sample in parsed_samples]
+		return tokenized
 
-			tokenized_adj_noun = [[self.huggingface_tokenizer(adj_noun, return_tensors='pt', padding='max_length', truncation=True).input_ids
-									for adj_noun in adj_noun_list] for adj_noun_list in adj_noun_lists]
-			tokenized_adj_noun = torch.tensor(tokenized_adj_noun).flatten(start_dim=0, end_dim=1)
-			return tokenized, tokenized_adj_noun
+	def adj_noun_tokenize(self, sampled_descs):
+		assert(self.adj_noun)
+		parsed_samples = [[self.parser(desc) for desc in sublist] for sublist in sampled_descs]
+		adj_noun_lists = [[self.get_adj_noun(parsed_sample) for parsed_sample in sublist] for sublist in parsed_samples]
 
-	def forward(self, tokenized_descs, tokenized_adj_noun=None):
+		tokenized_adj_noun = [self.huggingface_tokenizer(adj_nouns, return_tensors='pt', padding='max_length',
+															truncation=True).input_ids
+								for adj_nouns in adj_noun_lists]
+		tokenized_adj_noun = torch.cat(tokenized_adj_noun, dim=0)
+		return tokenized_adj_noun
+
+	def forward(self, descs):
 		"""
 		Parameters
 		----------
@@ -93,17 +95,19 @@ class DescriptionEncoder(nn.Module):
 			description embeddings 
 			of shape ((BATCH_SIZE * descs_per_mesh) x joint_embed_dim)
 		"""
+		tokenized_descs = self.tokenize(descs)
 		last_hidden_state = self.huggingface_encoder(tokenized_descs).last_hidden_state
 		# define 'global_context' as the hidden output of [EOS]
 		global_context = last_hidden_state[torch.arange(last_hidden_state.shape[0]), tokenized_descs.argmax(dim=1)] # (tokenized_descs == self.eos_token_id).nonzero()]
-		if tokenized_adj_noun != None:
+		if self.adj_noun:
+			tokenized_adj_noun = self.adj_noun_tokenize(descs)
 			last_adj_noun_hidden_state = self.huggingface_encoder(tokenized_adj_noun).last_hidden_state
 			adj_noun_context = last_adj_noun_hidden_state[torch.arange(last_hidden_state.shape[0]), tokenized_adj_noun.argmax(dim=1)]
-			adj_noun_context = adj_noun_context.reshape([global_context.shape[0], -1])
-			adj_noun_context = (adj_noun_context.sum(dim=1)) / adj_noun_context.shape[1]
+			# adj_noun_context = adj_noun_context.reshape([global_context.shape[0], -1])
+			adj_noun_context = (torch.sum(adj_noun_context, dim=1)) / adj_noun_context.shape[1]  # average
 			global_context = torch.cat([global_context, adj_noun_context], dim=0)
 
-		projection = self.text_projection if tokenized_adj_noun == None else self.adj_noun_text_projection
+		projection = self.text_projection if self.adj_noun else self.adj_noun_text_projection
 		desc_embeddings = projection(global_context)
 		# normalize
 		desc_embeddings = F.normalize(desc_embeddings, dim=1)
@@ -502,7 +506,7 @@ def build_model(state_dict: dict):
 	model.load_state_dict(state_dict)
 	return model.eval()
 
-## baseline text encoder
+## baseline text encoder = NOT_USING
 class AdjNounEncoder(nn.Module):
 
 	def __init__(self, vocab_size, embedding_dim, hidden_dim, output_dim):
