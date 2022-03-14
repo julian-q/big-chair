@@ -7,7 +7,7 @@ from tqdm import tqdm
 import os
 
 dataset = torch.load('dataset/processed/val_set.pt')
-retrieval_dataset = dataset[:10]
+retrieval_dataset = dataset[:100]
 retrieval_dataloader = DataLoader(retrieval_dataset, batch_size=2, shuffle=False)
 
 desc_encoder = DescriptionContextEncoder(128, adj_noun=True)
@@ -17,6 +17,8 @@ mesh_encoder.load_state_dict(torch.load('simple_context/simple_context_mesh_para
 
 query_index = random.randint(0, len(retrieval_dataset))
 query_desc = [random.sample(retrieval_dataset[query_index].descs, 1)]
+print('query:', query_desc[0][0]['full_desc'])
+
 query_desc_embedding = desc_encoder(query_desc)
 
 mesh_embeddings = torch.empty(len(retrieval_dataset), 128)
@@ -32,6 +34,7 @@ logits = query_desc_embedding @ mesh_embeddings.T
 _, topk_indices = torch.topk(logits, k=5, dim=1)
 topk_meshes = retrieval_dataset[topk_indices]
 topk_model_ids = [m.model_id for m in topk_meshes]
+
 print('top 5 closest models:', topk_model_ids)
 print('to get images, enter model id into ShapeNet here: https://shapenet.org/model-querier')
 
