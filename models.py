@@ -237,28 +237,33 @@ class HierarchicalMeshEncoder(nn.Module):
 		self.dropout_prob = dropout_prob
 		self.ratio = ratio
 
-		self.conv1 = GATConv(input_dim, joint_embed_dim // 2, edge_dim=1)
-		self.pool1 = TopKPooling(joint_embed_dim // 2, ratio=ratio)
-		self.conv2 = GATConv(joint_embed_dim // 2, joint_embed_dim, edge_dim=1)
-		self.pool2 = TopKPooling(joint_embed_dim, ratio=ratio)
-		self.conv3 = GATConv(joint_embed_dim, joint_embed_dim, edge_dim=1)
-		self.pool3 = TopKPooling(joint_embed_dim, ratio=ratio)
-		self.linear = nn.Linear(joint_embed_dim * 2, joint_embed_dim)
+		# self.conv1 = GATConv(input_dim, joint_embed_dim // 2, edge_dim=1)
+		# self.pool1 = TopKPooling(joint_embed_dim // 2, ratio=ratio)
+		# self.conv2 = GATConv(joint_embed_dim // 2, joint_embed_dim, edge_dim=1)
+		# self.pool2 = TopKPooling(joint_embed_dim, ratio=ratio)
+		# self.conv3 = GATConv(joint_embed_dim, joint_embed_dim, edge_dim=1)
+		# self.pool3 = TopKPooling(joint_embed_dim, ratio=ratio)
+		# self.linear = nn.Linear(joint_embed_dim * 2, joint_embed_dim)
+
+		self.conv1 = GATConv(input_dim, joint_embed_dim // 2)
+		self.conv2 = GATConv(joint_embed_dim // 2, joint_embed_dim // 2)
+		self.conv3 = GATConv(joint_embed_dim // 2, joint_embed_dim // 2)
+		self.linear = nn.Linear(joint_embed_dim, joint_embed_dim)
 
 	def forward(self, batch):
 		x, edge_index, edge_attr, batch = batch.x, batch.edge_index, batch.edge_attr, batch.batch
 
-		x = self.conv1(x, edge_index, edge_attr)
+		x = self.conv1(x, edge_index, edge_attr, dropout=self.dropout_prob)
 		# x = F.dropout(x, p=self.dropout_prob, training=self.training)
 
 		# x, edge_index, edge_attr, batch, _, _ = self.pool1(x, edge_index, edge_attr, batch)
 
-		x = self.conv2(x, edge_index, edge_attr)
+		x = self.conv2(x, edge_index, edge_attr, dropout=self.dropout_prob)
 		# x = F.dropout(x, p=self.dropout_prob, training=self.training)
 
 		# x, edge_index, edge_attr, batch, _, _ = self.pool2(x, edge_index, edge_attr, batch)
 
-		x = self.conv3(x, edge_index, edge_attr)
+		x = self.conv3(x, edge_index, edge_attr, dropout=self.dropout_prob)
 		# x = F.dropout(x, p=self.dropout_prob, training=self.training)
 
 		# x, edge_index, edge_attr, batch, _, _ = self.pool3(x, edge_index, edge_attr, batch)
