@@ -276,16 +276,16 @@ class HierarchicalMeshEncoder(nn.Module):
 		max_pool = global_max_pool(x, batch)
 
 		# x = torch.cat([mean_pool, max_pool], dim=1)
-		x = global_mean_pool(x, batch)
+		res = global_mean_pool(x, batch)
 
-		x = self.linear(x)
+		res = self.linear(x)
 
-		x = F.normalize(x, dim=1)
+		res = F.normalize(x, dim=1)
 
 		# print("mesh encoding:")
 		# print(x[:3, :5])
 
-		return x
+		return res
 
 
 class BatchMeshEncoder(nn.Module):
