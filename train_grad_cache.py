@@ -47,7 +47,7 @@ val_set = torch.load(os.path.join('dataset', 'processed', 'val_set.pt'))
 device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
 # init models
-desc_encoder = DescriptionEncoder(args.joint_embedding_dim).to(device)
+desc_encoder = DescriptionContextEncoder(args.joint_embedding_dim, args.adj_noun).to(device)
 
 # 6 is input dim because we have 3 for vertex positions and 3 for vertex colors
 mesh_encoder = HierarchicalMeshEncoder(6, args.joint_embedding_dim).to(device)

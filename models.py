@@ -20,11 +20,11 @@ class DescriptionContextEncoder(nn.Module):
 	"""
 	uses an encoder from Hugging Face to embed descriptions
 	"""
-	def __init__(self, joint_embed_dim: int):
+	def __init__(self, joint_embed_dim: int, adj_noun):
 		super().__init__()
 
 		self.joint_embed_dim = joint_embed_dim
-
+		self.adj_noun = adj_noun
 
 
 		huggingface_encoder_id = 'openai/clip-vit-base-patch32'
