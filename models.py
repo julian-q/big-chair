@@ -250,7 +250,7 @@ class AdvancedMeshEncoder(nn.Module):
         self.mlp = nn.Sequential(nn.Linear(joint_embed_dim * 2, joint_embed_dim),
                                  nn.ReLU(),
                                  nn.Linear(joint_embed_dim, joint_embed_dim),
-                                 nn.RelU())
+                                 nn.ReLU())
 
 
     def forward(self, batch):
