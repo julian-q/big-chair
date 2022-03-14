@@ -34,6 +34,9 @@ class DescriptionContextEncoder(nn.Module):
 		self.eos_token_id = self.huggingface_tokenizer.eos_token_id
 		self.text_projection = nn.Linear(self.huggingface_encoder.config.hidden_size,
 										 joint_embed_dim)
+		if self.adj_noun:
+			self.adj_noun_text_projection = nn.Linear(2 * self.huggingface_encoder.config.hidden_size,
+										 joint_embed_dim)
 
 	def tokenize(self, sampled_descs):
 		"""
@@ -83,7 +86,7 @@ class DescriptionContextEncoder(nn.Module):
 		last_hidden_state = self.huggingface_encoder(tokenized_descs).last_hidden_state
 		# define 'global_context' as the hidden output of [EOS]
 		global_context = last_hidden_state[torch.arange(last_hidden_state.shape[0]), tokenized_descs.argmax(dim=1)] # (tokenized_descs == self.eos_token_id).nonzero()]
-		print(global_context.shape)
+		# print(global_context.shape)
 		if self.adj_noun:
 			tokenized_adj_noun = self.adj_noun_tokenize(descs)
 
@@ -183,15 +186,15 @@ class MeshEncoder(nn.Module):
 	"""
 	GNN for embedding meshes
 	"""
-	def __init__(self, joint_embed_dim, opt="GAT"):
+	def __init__(self, input_dim, joint_embed_dim, opt="GAT"):
 		super().__init__()
 		if opt == "GraphSAGE":
-			self.message_passing = GraphSAGE(in_channels=3,
+			self.message_passing = GraphSAGE(in_channels=input_dim,
 										 	hidden_channels=joint_embed_dim // 2,
 										 	num_layers=3,
 										 	out_channels=joint_embed_dim)
 		elif opt == "GAT":
-			self.message_passing = GAT(in_channels=3,
+			self.message_passing = GAT(in_channels=input_dim,
 										hidden_channels=joint_embed_dim // 2,
 										num_layers=3,
 										out_channels=joint_embed_dim)
