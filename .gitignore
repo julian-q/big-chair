@@ -10,6 +10,7 @@ dataset/colored_models/
 2_full_gat/
 dataset/raw
 gat_grad_cache/
+gat_context_2/
 runs/
 __pycache__/
 .vscode
