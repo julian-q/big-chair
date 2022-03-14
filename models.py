@@ -241,10 +241,17 @@ class AdvancedMeshEncoder(nn.Module):
 		self.conv2 = GATConv(joint_embed_dim // 2, joint_embed_dim // 2)
 		self.conv3 = GATConv(joint_embed_dim, joint_embed_dim)
 
-		self.edge_conv_nn = nn.Sequential(nn.Linear(joint_embed_dim, joint_embed_dim), nn.ReLU())
+		self.edge_conv_nn = nn.Sequential(nn.Linear(joint_embed_dim, joint_embed_dim),
+							nn.ReLU(),
+							nn.Linear(joint_embed_dim, joint_embed_dim),
+							nn.ReLU())
 		self.edge_conv = EdgeConv(self.edge_conv_nn)
 
-                self.mlp = nn.Sequential(nn.Linear(joint_embed_dim * 2, joint_embed_dim), nn.ReLU())
+        self.mlp = nn.Sequential(nn.Linear(joint_embed_dim * 2, joint_embed_dim),
+								 nn.ReLU(),
+								 nn.Linear(joint_embed_dim, joint_embed_dim),
+								 nn.RelU())
+
 
 	def forward(self, batch):
 		x, edge_index, batch = batch.x, batch.edge_index, batch.batch
