@@ -1,3 +1,4 @@
+from lib2to3.pgen2.token import tok_name
 from dataset_pyg import AnnotatedMeshDataset
 from torch_geometric.loader import DataLoader
 from models import DescriptionContextEncoder, MeshEncoder
@@ -21,7 +22,6 @@ query_desc = [random.sample(retrieval_dataset[query_index].descs, 1)]
 print('query:', query_desc[0][0]['full_desc'])
 
 query_desc_embedding = desc_encoder(query_desc)
-print('embed:', query_desc_embedding)
 
 mesh_embeddings = torch.empty(len(retrieval_dataset), 128)
 mesh_index = 0
@@ -36,11 +36,9 @@ probabilities = F.softmax(logits, dim=0)
 
 k = 5
 _, topk_indices = torch.topk(probabilities, k=k, sorted=True)
-topk_meshes = retrieval_dataset[topk_indices]
-topk_model_ids = [m.model_id for m in topk_meshes]
 
 print('top 5 closest models:')
-for i in range(k):
-    print(topk_model_ids[i], ':', probabilities[i].item())
+for i, p in zip(topk_indices, reversed(sorted(probabilities))):
+    print(retrieval_dataset[i].model_id, ':', p.item())
 print('to get images, enter model id into ShapeNet here: https://shapenet.org/model-querier')
 
