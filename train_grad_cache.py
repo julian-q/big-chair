@@ -101,7 +101,7 @@ for epoch in range(args.epoch):
 			optimizer.step()
 			loss = loss.detach().cpu()
 
-			print("batch " + i_batch + ": " + loss.item())
+			print("batch " + str(i_batch) + ": " + loss.item())
 			average_loss = loss / (len(batch) * args.sub_batch_size)
 			losses.append(average_loss)
 			torch.save(losses, os.path.join(args.name, args.name + "_loss.pt"))
