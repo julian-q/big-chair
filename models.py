@@ -6,7 +6,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import dropout, nn
-from torch_geometric.nn import GraphSAGE, GCNConv, GAT, GATConv, TopKPooling, global_mean_pool, global_max_pool
+from torch_geometric.nn import GraphSAGE, GCNConv, GAT, GATConv, EdgeConv, global_mean_pool, global_max_pool
 from torch_geometric.data import Data
 from transformers import AutoTokenizer, AutoModel, CLIPProcessor, Trainer, TrainingArguments
 
@@ -230,47 +230,44 @@ class SimpleMeshEncoder(nn.Module):
 		mesh_embeddings = self.reduce(x=x, batch=batch.batch)
 		return mesh_embeddings
 		
-class HierarchicalMeshEncoder(nn.Module):
+class AdvancedMeshEncoder(nn.Module):
 	def __init__(self, input_dim, joint_embed_dim, dropout_prob=0.6, ratio=0.8):
-		super(HierarchicalMeshEncoder, self).__init__()
+		super(AdvancedMeshEncoder, self).__init__()
 
 		self.dropout_prob = dropout_prob
 		self.ratio = ratio
 
-		self.conv1 = GATConv(input_dim, joint_embed_dim // 2, edge_dim=1)
-		self.pool1 = TopKPooling(joint_embed_dim // 2, ratio=ratio)
-		self.conv2 = GATConv(joint_embed_dim // 2, joint_embed_dim, edge_dim=1)
-		self.pool2 = TopKPooling(joint_embed_dim, ratio=ratio)
-		self.conv3 = GATConv(joint_embed_dim, joint_embed_dim, edge_dim=1)
-		self.pool3 = TopKPooling(joint_embed_dim, ratio=ratio)
-		self.linear = nn.Linear(joint_embed_dim * 2, joint_embed_dim)
+		self.conv1 = GATConv(input_dim, joint_embed_dim // 2)
+		self.conv2 = GATConv(joint_embed_dim // 2, joint_embed_dim // 2)
+		self.conv3 = GATConv(joint_embed_dim, joint_embed_dim)
+
+		self.edge_conv_nn = nn.Sequential(nn.Linear(joint_embed_dim, joint_embed_dim), nn.ReLU())
+		self.edge_conv = EdgeConv(self.edge_conv_nn)
+
+                self.mlp = nn.Sequential(nn.Linear(joint_embed_dim * 2, joint_embed_dim), nn.ReLU())
 
 	def forward(self, batch):
-		x, edge_index, edge_attr, batch = batch.x, batch.edge_index, batch.edge_attr, batch.batch
+		x, edge_index, batch = batch.x, batch.edge_index, batch.batch
 
-		x = self.conv1(x, edge_index, edge_attr)
+		x = self.conv1(x, edge_index)
+		x = F.relu(x)
+		x = F.dropout(x, p=self.dropout_prob, training=self.training)
+
+		x = self.conv2(x, edge_index)
 		x = F.elu(x)
 		x = F.dropout(x, p=self.dropout_prob, training=self.training)
 
-		x, edge_index, edge_attr, batch, _, _ = self.pool1(x, edge_index, edge_attr, batch)
+		x = self.edge_conv(x, edge_index)
 
-		x = self.conv2(x, edge_index, edge_attr)
-		x = F.elu(x)
+		x = self.conv3(x, edge_index)
+		x = F.relu(x)
 		x = F.dropout(x, p=self.dropout_prob, training=self.training)
-
-		x, edge_index, edge_attr, batch, _, _ = self.pool2(x, edge_index, edge_attr, batch)
-
-		x = self.conv3(x, edge_index, edge_attr)
-		x = F.elu(x)
-		x = F.dropout(x, p=self.dropout_prob, training=self.training)
-
-		x, edge_index, edge_attr, batch, _, _ = self.pool3(x, edge_index, edge_attr, batch)
 
 		mean_pool = global_mean_pool(x, batch)
 		max_pool = global_max_pool(x, batch)
 
 		x = torch.cat([mean_pool, max_pool], dim=1)
-		x = self.linear(x)
+		x = self.mlp(x)
 		x = F.normalize(x, dim=1)
 
 		return x
