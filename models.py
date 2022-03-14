@@ -246,9 +246,9 @@ class HierarchicalMeshEncoder(nn.Module):
 		# self.pool3 = TopKPooling(joint_embed_dim, ratio=ratio)
 		# self.linear = nn.Linear(joint_embed_dim * 2, joint_embed_dim)
 
-		self.conv1 = GATConv(input_dim, joint_embed_dim // 2)
-		self.conv2 = GATConv(joint_embed_dim // 2, joint_embed_dim // 2)
-		self.conv3 = GATConv(joint_embed_dim // 2, joint_embed_dim // 2)
+		self.conv1 = GCNConv(input_dim, joint_embed_dim // 2)
+		self.conv2 = GCNConv(joint_embed_dim // 2, joint_embed_dim // 2)
+		self.conv3 = GCNConv(joint_embed_dim // 2, joint_embed_dim // 2)
 		self.linear = nn.Linear(joint_embed_dim // 2, joint_embed_dim)
 
 	def forward(self, batch):
@@ -276,7 +276,7 @@ class HierarchicalMeshEncoder(nn.Module):
 		max_pool = global_max_pool(x, batch)
 
 		# x = torch.cat([mean_pool, max_pool], dim=1)
-		x = mean_pool
+		x = global_mean_pool(x, batch)
 
 		x = self.linear(x)
 
