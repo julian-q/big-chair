@@ -272,6 +272,9 @@ class HierarchicalMeshEncoder(nn.Module):
 		x = torch.cat([mean_pool, max_pool], dim=1)
 		x = self.linear(x)
 
+		print("mesh encoding:")
+		print(x[:3, :5])
+
 		return x
 
 

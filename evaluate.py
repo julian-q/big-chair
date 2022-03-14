@@ -37,11 +37,6 @@ def evaluate(eval_dataset, model, parameters_path, device="cpu"):
     big_logit = torch.empty(len(eval_dataset), len(eval_dataset)).to(device)
     batch_i_idx = 0
 
-    eval_dataloader = DataLoader(eval_dataset, batch_size=1, shuffle=False)
-
-    big_logit = torch.empty(len(eval_dataset), len(eval_dataset)).to(device)
-    batch_i_idx = 0
-
     for batch_i in tqdm(eval_dataloader):
         # print(torch.cuda.memory_summary())
 
@@ -184,6 +179,6 @@ model = CLIP_pretrained(joint_embed_dim=128,
                         mesh_encoder=SimpleMeshEncoder,
                         context_length=77,
                         opt=args.graph).to("cpu")
-val_dataset = torch.load("dataset/processed/val_set.pt")
+val_dataset = torch.load("dataset/processed/old_val_set.pt")
 print("Val Accuracy: ", evaluate(val_dataset, model, os.path.join(args.name, args.name + "_parameters.pt")))
 
