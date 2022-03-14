@@ -50,7 +50,7 @@ device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 desc_encoder = DescriptionContextEncoder(args.joint_embedding_dim, args.adj_noun).to(device)
 
 # 6 is input dim because we have 3 for vertex positions and 3 for vertex colors
-mesh_encoder = MeshEncoder(6, args.joint_embedding_dim).to(device)
+mesh_encoder = HierarchicalMeshEncoder(6, args.joint_embedding_dim).to(device)
 
 contrastive_loss = ContrastiveLoss().to(device)
 

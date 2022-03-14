@@ -271,6 +271,7 @@ class HierarchicalMeshEncoder(nn.Module):
 
 		x = torch.cat([mean_pool, max_pool], dim=1)
 		x = self.linear(x)
+		x = F.normalize(x, dim=1)
 
 		return x
 
