@@ -50,7 +50,7 @@ device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 desc_encoder = DescriptionContextEncoder(args.joint_embedding_dim, args.adj_noun).to(device)
 
 # 6 is input dim because we have 3 for vertex positions and 3 for vertex colors
-mesh_encoder = HierarchicalMeshEncoder(6, args.joint_embedding_dim).to(device)
+mesh_encoder = MeshEncoder(6, args.joint_embedding_dim).to(device)
 
 contrastive_loss = ContrastiveLoss().to(device)
 
@@ -70,7 +70,7 @@ contrastive_loss.train()
 parameters = list(desc_encoder.parameters()) \
 		   + list(mesh_encoder.parameters()) \
 		   + list(contrastive_loss.parameters())
-optimizer = optim.Adam(parameters, lr=5e-5,betas=(0.9,0.98),eps=1e-6,weight_decay=0.2) 
+optimizer = optim.Adam(parameters, lr=1e-2,betas=(0.9,0.98),eps=1e-6,weight_decay=0.2) 
 # Params used from paper, the lr is smaller, more safe for fine tuning to new dataset
 
 losses = []
