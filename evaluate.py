@@ -34,56 +34,99 @@ def evaluate(eval_dataset, model, parameters_path, device="cpu"):
 
     eval_dataloader = DataLoader(eval_dataset, batch_size=1, shuffle=False)
 
-    big_logit = torch.empty(len(eval_dataset), len(eval_dataset)).to(device)
-    batch_i_idx = 0
+    desc_embeddings = torch.empty(len(eval_dataset) * 5, 128).cpu()
+    mesh_embeddings = torch.empty(len(eval_dataset), 128).cpu()
+    desc_index = 0
+    mesh_index = 0
 
-    for batch_i in tqdm(eval_dataloader):
-        # print(torch.cuda.memory_summary())
-
-        batch_i.to(device)
-        batch_descs = batch_i.descs
+    for batch in tqdm(eval_dataloader):
+        batch.cpu()
+        batch_descs = batch.descs
         sampled_descs = [random.choices(descs, k=5) for descs in batch_descs]
 
+        # desc_embeddings_i = desc_encoder(sampled_descs).detach().cpu().clone()
         tokenized_descs = torch.cat([model.tokenizer(model_descs, return_tensors="pt", padding='max_length',
-                                                 truncation=True).input_ids
-                                 for model_descs in sampled_descs], dim=0).to(device)
+                                                     truncation=True).input_ids
+                                                     for model_descs in sampled_descs], dim=0).to(device)
 
-        desc_embeddings_i = model.text_projection(torch.sum(model.text_encoder(tokenized_descs).last_hidden_state, dim=1)).to(device)
+        desc_embeddings_i = model.text_projection(torch.sum(model.text_encoder(tokenized_descs).last_hidden_state, dim=1))\
+            .detach().cpu().clone()
+        desc_embeddings_i = desc_embeddings_i / desc_embeddings_i.norm(dim=-1, keepdim=True)
+        desc_embeddings[desc_index:desc_index + desc_embeddings_i.shape[0], :] = desc_embeddings_i
+        desc_index += desc_embeddings_i.shape[0]
 
-        # since each mesh may have differing numbers of descriptions, we sample a fixed
-        # number (self.descs_per_mesh) of them for each mesh in order to standardize
-        # memory usage
+        mesh_embeddings_i = model.encode_mesh(batch).detach().cpu().clone()
+        mesh_embeddings_i = mesh_embeddings_i / mesh_embeddings_i.norm(dim=-1, keepdim=True)
+        mesh_embeddings[mesh_index:mesh_index + mesh_embeddings_i.shape[0], :] = mesh_embeddings_i
+        mesh_index += mesh_embeddings_i.shape[0]
 
-        logits_i = torch.empty(desc_embeddings_i.shape[0], len(eval_dataset)).to(device)
-        batch_j_idx = 0
+    big_logits = desc_embeddings @ mesh_embeddings.T
 
-        for batch_j in eval_dataloader:
-            pass
-            batch_j.to(device)
-            batch_meshes = batch_j
-
-            mesh_embeddings = model.mesh_encoder(batch_meshes).to(device)
-
-            logits_j = desc_embeddings_i @ mesh_embeddings.T
-            logits_i[:, batch_j_idx:batch_j_idx + logits_j.shape[1]] = logits_j.clone()
-            batch_j_idx += len(batch_j)
-
-        big_logit[batch_i_idx:batch_i_idx + logits_i.shape[0], :] = logits_i.clone()
-        batch_i_idx += logits_i.shape[0]
-
-    n_desc = len(eval_dataloader) * args.descs_per_mesh
+    n_desc = len(eval_dataloader) * 5
     n_mesh = len(eval_dataloader)
-    descs_per_mesh = n_desc // n_mesh
 
     # target distributions
     targets_per_desc = torch.zeros(n_desc, n_mesh)
     # one-hot distribution for single matching mesh
     targets_per_desc[torch.arange(n_desc),
-                     torch.arange(n_mesh).repeat_interleave(descs_per_mesh)] = 1
+                     torch.arange(n_mesh).repeat_interleave(5)] = 1
 
-    total_val_acc = top_5_eval(big_logit, targets_per_desc)
+    total_val_acc = top_5_eval(big_logits, targets_per_desc)
 
     return total_val_acc.item()
+
+    # eval_dataloader = DataLoader(eval_dataset, batch_size=1, shuffle=False)
+    #
+    # big_logit = torch.empty(len(eval_dataset), len(eval_dataset)).to(device)
+    # batch_i_idx = 0
+    #
+    # for batch_i in tqdm(eval_dataloader):
+    #     # print(torch.cuda.memory_summary())
+    #
+    #     batch_i.to(device)
+    #     batch_descs = batch_i.descs
+    #     sampled_descs = [random.choices(descs, k=5) for descs in batch_descs]
+    #
+    #     tokenized_descs = torch.cat([model.tokenizer(model_descs, return_tensors="pt", padding='max_length',
+    #                                              truncation=True).input_ids
+    #                              for model_descs in sampled_descs], dim=0).to(device)
+    #
+    #     desc_embeddings_i = model.text_projection(torch.sum(model.text_encoder(tokenized_descs).last_hidden_state, dim=1)).to(device)
+    #
+    #     # since each mesh may have differing numbers of descriptions, we sample a fixed
+    #     # number (self.descs_per_mesh) of them for each mesh in order to standardize
+    #     # memory usage
+    #
+    #     logits_i = torch.empty(desc_embeddings_i.shape[0], len(eval_dataset)).to(device)
+    #     batch_j_idx = 0
+    #
+    #     for batch_j in eval_dataloader:
+    #         pass
+    #         batch_j.to(device)
+    #         batch_meshes = batch_j
+    #
+    #         mesh_embeddings = model.mesh_encoder(batch_meshes).to(device)
+    #
+    #         logits_j = desc_embeddings_i @ mesh_embeddings.T
+    #         logits_i[:, batch_j_idx:batch_j_idx + logits_j.shape[1]] = logits_j.clone()
+    #         batch_j_idx += len(batch_j)
+    #
+    #     big_logit[batch_i_idx:batch_i_idx + logits_i.shape[0], :] = logits_i.clone()
+    #     batch_i_idx += logits_i.shape[0]
+    #
+    # n_desc = len(eval_dataloader) * args.descs_per_mesh
+    # n_mesh = len(eval_dataloader)
+    # descs_per_mesh = n_desc // n_mesh
+    #
+    # # target distributions
+    # targets_per_desc = torch.zeros(n_desc, n_mesh)
+    # # one-hot distribution for single matching mesh
+    # targets_per_desc[torch.arange(n_desc),
+    #                  torch.arange(n_mesh).repeat_interleave(descs_per_mesh)] = 1
+    #
+    # total_val_acc = top_5_eval(big_logit, targets_per_desc)
+    #
+    # return total_val_acc.item()
 
     # for batch_i in tqdm(eval_dataloader):
     #     # print(torch.cuda.memory_summary())
@@ -179,6 +222,6 @@ model = CLIP_pretrained(joint_embed_dim=128,
                         mesh_encoder=SimpleMeshEncoder,
                         context_length=77,
                         opt=args.graph).to("cpu")
-val_dataset = torch.load("dataset/processed/old_val_set.pt")
+val_dataset = torch.load("dataset/processed/val_set.pt")
 print("Val Accuracy: ", evaluate(val_dataset, model, os.path.join(args.name, args.name + "_parameters.pt")))
 
