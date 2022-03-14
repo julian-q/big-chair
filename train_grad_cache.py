@@ -100,8 +100,6 @@ for epoch in range(args.epoch):
 			loss = gc(sampled_descs, batch_meshes) # GradCache takes care of backprop
 			optimizer.step()
 
-			print(loss.grad)
-
 			loss.detach().cpu()
 
 			print("batch " + str(i_batch) + ": " + str(loss.item()))
