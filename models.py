@@ -1,5 +1,6 @@
 from collections import OrderedDict
 from ntpath import join
+from tkinter import E
 from typing import Tuple, Union
 
 import numpy as np
@@ -237,40 +238,52 @@ class HierarchicalMeshEncoder(nn.Module):
 		self.dropout_prob = dropout_prob
 		self.ratio = ratio
 
-		self.conv1 = GATConv(input_dim, joint_embed_dim // 2, edge_dim=1)
-		self.pool1 = TopKPooling(joint_embed_dim // 2, ratio=ratio)
-		self.conv2 = GATConv(joint_embed_dim // 2, joint_embed_dim, edge_dim=1)
-		self.pool2 = TopKPooling(joint_embed_dim, ratio=ratio)
-		self.conv3 = GATConv(joint_embed_dim, joint_embed_dim, edge_dim=1)
-		self.pool3 = TopKPooling(joint_embed_dim, ratio=ratio)
-		self.linear = nn.Linear(joint_embed_dim * 2, joint_embed_dim)
+		# self.conv1 = GATConv(input_dim, joint_embed_dim // 2, edge_dim=1)
+		# self.pool1 = TopKPooling(joint_embed_dim // 2, ratio=ratio)
+		# self.conv2 = GATConv(joint_embed_dim // 2, joint_embed_dim, edge_dim=1)
+		# self.pool2 = TopKPooling(joint_embed_dim, ratio=ratio)
+		# self.conv3 = GATConv(joint_embed_dim, joint_embed_dim, edge_dim=1)
+		# self.pool3 = TopKPooling(joint_embed_dim, ratio=ratio)
+		# self.linear = nn.Linear(joint_embed_dim * 2, joint_embed_dim)
+
+		self.conv1 = GCNConv(input_dim, joint_embed_dim // 2)
+		self.conv2 = GCNConv(joint_embed_dim // 2, joint_embed_dim // 2)
+		self.conv3 = GCNConv(joint_embed_dim // 2, joint_embed_dim // 2)
+		self.linear = nn.Linear(joint_embed_dim // 2, joint_embed_dim)
 
 	def forward(self, batch):
-		x, edge_index, edge_attr = batch.x, batch.edge_index, batch.edge_attr
+		x, edge_index, edge_attr, batch = batch.x, batch.edge_index, batch.edge_attr, batch.batch
 
-		x = self.conv1(x, edge_index, edge_attr)
+		x = self.conv1(x, edge_index)
+		x = F.relu(x)
 		# x = F.dropout(x, p=self.dropout_prob, training=self.training)
 
-		x, edge_index, edge_attr, batch, _, _ = self.pool1(x, edge_index, edge_attr, batch.batch)
+		# x, edge_index, edge_attr, batch, _, _ = self.pool1(x, edge_index, edge_attr, batch)
 
-		x = self.conv2(x, edge_index, edge_attr)
+		x = self.conv2(x, edge_index)
+		x = F.relu(x)
 		# x = F.dropout(x, p=self.dropout_prob, training=self.training)
 
-		x, edge_index, edge_attr, batch, _, _ = self.pool2(x, edge_index, edge_attr, batch)
+		# x, edge_index, edge_attr, batch, _, _ = self.pool2(x, edge_index, edge_attr, batch)
 
-		x = self.conv3(x, edge_index, edge_attr)
+		x = self.conv3(x, edge_index)
+		x = F.relu(x)
 		# x = F.dropout(x, p=self.dropout_prob, training=self.training)
 
-		x, edge_index, edge_attr, batch, _, _ = self.pool3(x, edge_index, edge_attr, batch)
+		# x, edge_index, edge_attr, batch, _, _ = self.pool3(x, edge_index, edge_attr, batch)
 
 		mean_pool = global_mean_pool(x, batch)
 		max_pool = global_max_pool(x, batch)
 
-		x = torch.cat([mean_pool, max_pool], dim=1)
+		# x = torch.cat([mean_pool, max_pool], dim=1)
+		x = global_mean_pool(x, batch)
+
 		x = self.linear(x)
 
-		print("mesh encoding:")
-		print(x[:3, :5])
+		x = F.normalize(x, dim=1)
+
+		# print("mesh encoding:")
+		# print(x[:3, :5])
 
 		return x
 
