@@ -251,17 +251,17 @@ class HierarchicalMeshEncoder(nn.Module):
 		x = self.conv1(x, edge_index, edge_attr)
 		# x = F.dropout(x, p=self.dropout_prob, training=self.training)
 
-		x, edge_index, edge_attr, batch, _, _ = self.pool1(x, edge_index, edge_attr, batch.batch)
+		# x, edge_index, edge_attr, batch, _, _ = self.pool1(x, edge_index, edge_attr, batch.batch)
 
 		x = self.conv2(x, edge_index, edge_attr)
 		# x = F.dropout(x, p=self.dropout_prob, training=self.training)
 
-		x, edge_index, edge_attr, batch, _, _ = self.pool2(x, edge_index, edge_attr, batch)
+		# x, edge_index, edge_attr, batch, _, _ = self.pool2(x, edge_index, edge_attr, batch)
 
 		x = self.conv3(x, edge_index, edge_attr)
 		# x = F.dropout(x, p=self.dropout_prob, training=self.training)
 
-		x, edge_index, edge_attr, batch, _, _ = self.pool3(x, edge_index, edge_attr, batch)
+		# x, edge_index, edge_attr, batch, _, _ = self.pool3(x, edge_index, edge_attr, batch)
 
 		mean_pool = global_mean_pool(x, batch)
 		max_pool = global_max_pool(x, batch)
