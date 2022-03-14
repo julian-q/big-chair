@@ -206,6 +206,9 @@ class MeshEncoder(nn.Module):
 		mesh_embeddings = self.reduce(x=x, batch=batch.batch)
 		# normalize
 		mesh_embeddings = F.normalize(mesh_embeddings, dim=1)
+
+		print(mesh_embeddings)
+
 		return mesh_embeddings
 
 class SimpleMeshEncoder(nn.Module):

@@ -222,6 +222,6 @@ model = CLIP_pretrained(joint_embed_dim=128,
                         mesh_encoder=SimpleMeshEncoder,
                         context_length=77,
                         opt=args.graph).to("cpu")
-val_dataset = torch.load("dataset/processed/val_set.pt")
+val_dataset = torch.load("dataset/processed/old_train_set.pt").shuffle()[:547]
 print("Val Accuracy: ", evaluate(val_dataset, model, os.path.join(args.name, args.name + "_parameters.pt")))
 

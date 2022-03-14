@@ -70,7 +70,7 @@ contrastive_loss.train()
 parameters = list(desc_encoder.parameters()) \
 		   + list(mesh_encoder.parameters()) \
 		   + list(contrastive_loss.parameters())
-optimizer = optim.Adam(parameters, lr=5e-5,betas=(0.9,0.98),eps=1e-6,weight_decay=0.2) 
+optimizer = optim.Adam(parameters, lr=1e-2,betas=(0.9,0.98),eps=1e-6,weight_decay=0.2) 
 # Params used from paper, the lr is smaller, more safe for fine tuning to new dataset
 
 losses = []
@@ -96,9 +96,10 @@ for epoch in range(args.epoch):
 			batch_descs, batch_meshes = [sub_batch.descs for sub_batch in batch], batch
 			sampled_descs = [[random.choices(descs, k=args.descs_per_mesh) for descs in sub_batch_descs]
 							 for sub_batch_descs in batch_descs]
-
+			print(sampled_descs)
 			loss = gc(sampled_descs, batch_meshes) # GradCache takes care of backprop
 			optimizer.step()
+
 			loss.detach().cpu()
 
 			print("batch " + str(i_batch) + ": " + str(loss.item()))
