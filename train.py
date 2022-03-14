@@ -1,122 +1,153 @@
-# based on https://github.com/openai/CLIP/issues/83
 import torch
 from torch import nn
 from torch import optim
 from dataset_pyg import AnnotatedMeshDataset
+from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
-from models import CLIP_pretrained, SimpleMeshEncoder
-from torch.utils.tensorboard import SummaryWriter
-from evaluate import batch_eval
-from clip import tokenize
+from models import MeshEncoder, DescriptionContextEncoder, HierarchicalMeshEncoder, DescriptionEncoder
+from loss import ContrastiveLoss
+from grad_cache import GradCache
+import random
+import os
+from argparse import ArgumentParser
+from typing import List
+from evaluate_big_embeddings import evaluate
+torch.autograd.set_detect_anomaly(True)
+import sys
 
-import argparse
-
-argp = argparse.ArgumentParser()
+argp = ArgumentParser()
 argp.add_argument('name',
     help="name of routine")
-argp.add_argument('graph',
-    help="Which graph to run ('GraphSAGE' or 'GAT')",
-    choices=["GraphSAGE", "GAT"])
-argp.add_argument('epoch',
-    help="number of epochs", default=None)
+# argp.add_argument('--gnn',
+# 	help='Which gnn to run ("GraphSAGE" or "GAT")',
+# 	choices=['GraphSAGE', 'GAT'], default='GAT')
+argp.add_argument('--adj_noun',
+    help='use adj/noun pairs?', type=bool, default=False)
+argp.add_argument('--epoch',
+    help='number of epochs', type=int, default=100)
+argp.add_argument('--batch_size',
+    help='batch size', type=int, default=200)
+argp.add_argument('--sub_batch_size',
+    help='batch size', type=int, default=20)
+argp.add_argument('--descs_per_mesh',
+    help='number of descriptions per each mesh in a batch', type=int, default=5)
+argp.add_argument('--joint_embedding_dim',
+    help='dimension of joint embedding space', type=int, default=128)
 args = argp.parse_args()
 
-BATCH_SIZE = 2
-EPOCH = int(args.epoch)
+if not os.path.isdir(args.name):
+    os.mkdir(args.name)
+# dataset setup
 
-dataset_root = './dataset/'
-# assumes that ./dataset/raw/ is full of .obj files!!!
-dataset = AnnotatedMeshDataset(dataset_root)
-#
-# dataset.shuffle()
-#
-# train_share = int(len(dataset) * 0.8)
-# val_share = int((len(dataset) - train_share) / 2)
-#
-# train_dataset = dataset[: train_share]
-# val_dataset = dataset[train_share: train_share + val_share]
-# test_dataset = dataset[train_share + val_share: ]
+train_set = torch.load(os.path.join('dataset', 'processed', 'train_set.pt'))
+train_dataloader = DataLoader(train_set, batch_size=args.sub_batch_size, shuffle=False)
 
-train_dataloader = DataLoader(torch.load("dataset/processed/train_set.pt"), batch_size=BATCH_SIZE, shuffle=False)
+val_set = torch.load(os.path.join('dataset', 'processed', 'val_set.pt'))
 
-device = "cuda:0" if torch.cuda.is_available() else "cpu"
+device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
-model = CLIP_pretrained(joint_embed_dim=128,
-                        mesh_encoder=SimpleMeshEncoder,
-                        context_length=dataset.max_desc_length,
-                        opt=args.graph).to(device)
-model.train()
+# init models
+desc_encoder = DescriptionContextEncoder(args.joint_embedding_dim, args.adj_noun).to(device)
 
-loss_mesh = nn.CrossEntropyLoss()
-loss_text = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=5e-5,betas=(0.9,0.98),eps=1e-6,weight_decay=0.2) # Params used from paper, the lr is smaller, more safe for fine tuning to new dataset
+# 6 is input dim because we have 3 for vertex positions and 3 for vertex colors
+mesh_encoder = MeshEncoder(6, args.joint_embedding_dim).to(device)
 
-writer = SummaryWriter()
-average_loss = torch.tensor([0], dtype=torch.float).to(device)
-total_loss = torch.tensor([0], dtype=torch.float).to(device)
-grad_step = 0
-count = 0
+contrastive_loss = ContrastiveLoss().to(device)
+
+cross_entropy = nn.CrossEntropyLoss()
+
+def split_inputs(model_input, chunk_size):
+    return model_input
+
+# gradient caching
+gc = GradCache(models=[desc_encoder, mesh_encoder],
+               chunk_sizes=[args.sub_batch_size * args.descs_per_mesh,
+                               args.sub_batch_size],
+               loss_fn=contrastive_loss,
+               split_input_fn=split_inputs)
+
+desc_encoder.train()
+mesh_encoder.train()
+contrastive_loss.train()
+parameters = list(desc_encoder.parameters()) \
+           + list(mesh_encoder.parameters()) \
+           + list(contrastive_loss.parameters())
+optimizer = optim.Adam(parameters, lr=1e-2,betas=(0.9,0.98),eps=1e-6,weight_decay=0.2) 
+# Params used from paper, the lr is smaller, more safe for fine tuning to new dataset
 
 losses = []
 train_accs = []
 val_accs = []
 
-for epoch in range(EPOCH):
+for epoch in range(args.epoch):
     print('starting epoch', epoch)
+
+    desc_encoder.train()
+    mesh_encoder.train()
+    contrastive_loss.train()
+
     for i_batch, batch in enumerate(train_dataloader):
-        model.train()
-        optimizer.zero_grad()
-        n_batch = batch.batch.max() + 1
-        # now, batch contains a mega graph containing each
-        # graph in the batch, as usual with pyg data loaders.
-        # each of these graphs has a 'descs' array containing
-        # its descriptions, all of which get combined into one
-        # giant nested array. we tokenize them below:
         batch.to(device)
-        # we could honestly move this code into the model's forward
-        # function now that we're using pyg
-        batch_texts = torch.cat([model.tokenizer(model_descs, return_tensors="pt", padding='max_length',
-                                                truncation=True).input_ids
-                                 for model_descs in batch.descs], dim=0).to(device)
-        # vector mapping each description to its mesh index
-        desc2mesh = torch.zeros(batch_texts.shape[0], dtype=torch.long)
+
+        optimizer.zero_grad()
+
+        batch_descs, batch_meshes = [sub_batch.descs for sub_batch in batch], batch
+        sampled_descs = [[random.choices(descs, k=args.descs_per_mesh) for descs in sub_batch_descs]
+                            for sub_batch_descs in batch_descs]
+
+        # loss = gc(sampled_descs, batch_meshes) # GradCache takes care of backprop
+        desc_embeddings = desc_encoder(batch_descs)
+        mesh_embeddings = mesh_encoder(batch_meshes)
+        n_desc = desc_embeddings.shape[0]
+        n_mesh = mesh_embeddings.shape[0]
+        descs_per_mesh = n_desc // n_mesh
+
+        # predicted logits
+        logits_per_mesh = mesh_embeddings @ desc_embeddings.T
+        logits_per_desc = logits_per_mesh.T
+
+        # target distributions
+        targets_per_desc = torch.zeros(n_desc, n_mesh).to(desc_embeddings.device)
+        # one-hot distribution for single matching mesh
+        targets_per_desc[torch.arange(n_desc), 
+                         torch.arange(n_mesh).repeat_interleave(descs_per_mesh)] = 1
+        targets_per_mesh = torch.zeros(n_mesh, n_desc).to(mesh_embeddings.device)
         # uniform distribution over matching descs
-        target_per_mesh = torch.zeros(n_batch, batch_texts.shape[0]).to(device)
-        # one-hot distribution for single matching shape
-        target_per_text = torch.zeros(batch_texts.shape[0], n_batch).to(device)
-        # loop over the descriptions and populate above
-        i_desc = 0
-        for i_mesh, model_descs in enumerate(batch.descs):
-            desc2mesh[i_desc:i_desc + len(model_descs)] = i_mesh
-            target_per_mesh[i_mesh, i_desc:i_desc + len(model_descs)] = 1 / len(model_descs)
-            target_per_text[i_desc:i_desc + len(model_descs), i_mesh] = 1
-            i_desc += len(model_descs)
+        targets_per_mesh[torch.arange(n_mesh).unsqueeze(dim=1), 
+                         torch.arange(n_desc).reshape(n_desc // descs_per_mesh, descs_per_mesh)] = 1 / descs_per_mesh
 
-        logits_per_mesh, logits_per_text = model(batch, batch_texts, desc2mesh)
-        acc = batch_eval(logits_per_text, target_per_text)
-        writer.add_scalar('Accu/train', acc.item(), count)
-        print('train accuracy:', acc.item())
-        total_loss += (loss_mesh(logits_per_mesh, target_per_mesh) + loss_text(logits_per_text, target_per_text)) / 2
-        if i_batch % 10 == 9:
-            total_loss.backward()
-            optimizer.step()
+        desc_loss = cross_entropy(logits_per_desc, targets_per_desc)
+        mesh_loss = cross_entropy(logits_per_mesh, targets_per_mesh)
+        loss = (desc_loss + mesh_loss) / 2
+        optimizer.step()
 
-            average_loss = total_loss / (10 * BATCH_SIZE)
-            writer.add_scalar('Loss/train', average_loss.item(), grad_step)
-            print('batch', i_batch - 9, '-', i_batch,  'loss: ', average_loss.item())
-            grad_step += 1
+        loss.detach().cpu()
 
-            losses.append(average_loss.item())
-            torch.save(losses, args.name + "_loss.pt")
-            train_accs.append(acc.item())
-            torch.save(train_accs, args.name + "_batch_accu.pt")
+        print("batch " + str(i_batch) + ": " + str(loss.item()))
+        average_loss = loss / (len(batch) * args.sub_batch_size)
+        losses.append(average_loss)
+        torch.save(losses, os.path.join(args.name, args.name + "_loss.pt"))
 
-            average_loss = torch.tensor([0], dtype=torch.float).to(device)
-            total_loss = torch.tensor([0], dtype=torch.float).to(device)
-        count += 1
-    torch.save(model.state_dict(), args.name + "_parameters.pt")
+        #print(torch.cuda.memory_summary())
+
+    epoch_acc = evaluate(train_set[:len(val_set)], desc_encoder, mesh_encoder, args.descs_per_mesh, device="cuda:0")
+    print('training accuracy:', epoch_acc)
+    train_accs.append(epoch_acc)
+    
+    torch.save(desc_encoder.state_dict(), os.path.join(args.name, args.name + "_desc_parameters.pt"))
+    torch.save(mesh_encoder.state_dict(),os.path.join(args.name, args.name + "_mesh_parameters.pt"))
+    torch.save(contrastive_loss.state_dict(), os.path.join(args.name, args.name + "_loss_parameters.pt"))
+
+    torch.save(losses, os.path.join(args.name, args.name + "_loss.pt"))
+    torch.save(train_accs, os.path.join(args.name, args.name + "_train_accs.pt"))
+
+
 print("done!")
-torch.save(model.state_dict(), args.name + "_parameters.pt")
+
+print('final evaluation')
+val_acc = evaluate(val_set, desc_encoder, mesh_encoder, args.descs_per_mesh, device="cuda:0")
+torch.save(val_acc, os.path.join(args.name, args.name + '_val_acc.pt'))
+
 
 
 
