@@ -246,12 +246,12 @@ class HierarchicalMeshEncoder(nn.Module):
 		self.linear = nn.Linear(joint_embed_dim * 2, joint_embed_dim)
 
 	def forward(self, batch):
-		x, edge_index, edge_attr = batch.x, batch.edge_index, batch.edge_attr
+		x, edge_index, edge_attr, batch = batch.x, batch.edge_index, batch.edge_attr, batch.batch
 
 		x = self.conv1(x, edge_index, edge_attr)
 		# x = F.dropout(x, p=self.dropout_prob, training=self.training)
 
-		# x, edge_index, edge_attr, batch, _, _ = self.pool1(x, edge_index, edge_attr, batch.batch)
+		# x, edge_index, edge_attr, batch, _, _ = self.pool1(x, edge_index, edge_attr, batch)
 
 		x = self.conv2(x, edge_index, edge_attr)
 		# x = F.dropout(x, p=self.dropout_prob, training=self.training)
