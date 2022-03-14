@@ -97,16 +97,19 @@ for epoch in range(args.epoch):
 			sampled_descs = [[random.choices(descs, k=args.descs_per_mesh) for descs in sub_batch_descs]
 							 for sub_batch_descs in batch_descs]
 
-			loss = gc(sampled_descs, batch_meshes).detach().cpu() # GradCache takes care of backprop
-			print(loss.item())
+			loss = gc(sampled_descs, batch_meshes) # GradCache takes care of backprop
+			optimizer.step()
+			loss = loss.detach().cpu()
+
+			print("batch " + i_batch + ": " + loss.item())
 			average_loss = loss / (len(batch) * args.sub_batch_size)
 			losses.append(average_loss)
 			torch.save(losses, os.path.join(args.name, args.name + "_loss.pt"))
 
-			optimizer.step()
+			#print(torch.cuda.memory_summary())
 
-			print(torch.cuda.memory_summary())
 
+			i_batch += 1
 			batch = []
 
 	epoch_acc = evaluate(train_set[:len(val_set)], desc_encoder, mesh_encoder, args.descs_per_mesh, device="cuda:0")
