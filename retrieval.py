@@ -35,7 +35,7 @@ logits = (query_desc_embedding @ mesh_embeddings.T).squeeze()
 probabilities = F.softmax(logits, dim=0)
 
 k = 5
-_, topk_indices = torch.topk(probabilities, k=k)
+_, topk_indices = torch.topk(probabilities, k=k, sorted=True)
 topk_meshes = retrieval_dataset[topk_indices]
 topk_model_ids = [m.model_id for m in topk_meshes]
 
