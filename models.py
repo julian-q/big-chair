@@ -277,7 +277,7 @@ class AdvancedMeshEncoder(nn.Module):
         x = torch.cat([mean_pool, max_pool], dim=1)
         x = self.mlp(x)
         x = F.normalize(x, dim=1)
-
+        print(x[:5][:7])
         return x
 
 
