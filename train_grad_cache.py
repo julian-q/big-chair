@@ -4,7 +4,7 @@ from torch import optim
 from dataset_pyg import AnnotatedMeshDataset
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
-from models import MeshEncoder, DescriptionContextEncoder, HierarchicalMeshEncoder, DescriptionEncoder
+from models import MeshEncoder, DescriptionContextEncoder, HierarchicalMeshEncoder, DescriptionEncoder, AdvancedMeshEncoder
 from loss import ContrastiveLoss
 from grad_cache import GradCache
 import random
@@ -18,9 +18,12 @@ import sys
 argp = ArgumentParser()
 argp.add_argument('name',
     help="name of routine")
-# argp.add_argument('--gnn',
-# 	help='Which gnn to run ("GraphSAGE" or "GAT")',
-# 	choices=['GraphSAGE', 'GAT'], default='GAT')
+argp.add_argument('--gnn',
+	help='Which gnn to run ("GraphSAGE" or "GAT")',
+	choices=['GraphSAGE', 'GAT'], default='GAT')
+argp.add_argument('--advanced',
+	help='advanced mesh encoder or nah',
+	type=bool, default=False)
 argp.add_argument('--adj_noun',
 	help='use adj/noun pairs?', type=bool, default=False)
 argp.add_argument('--epoch',
@@ -37,22 +40,26 @@ args = argp.parse_args()
 
 if not os.path.isdir(args.name):
 	os.mkdir(args.name)
+
 # dataset setup
 
-train_set = torch.load(os.path.join('dataset', 'processed', 'train_set.pt'))
+train_set = torch.load('/content/drive/MyDrive/train_set.pt')
 train_dataloader = DataLoader(train_set, batch_size=args.sub_batch_size, shuffle=False)
 
-val_set = torch.load(os.path.join('dataset', 'processed', 'val_set.pt'))
+val_set = torch.load('/content/drive/MyDrive/val_set.pt')
 
 device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
 # init models
 desc_encoder = DescriptionContextEncoder(args.joint_embedding_dim, args.adj_noun).to(device)
+desc_encoder.load_state_dict(torch.load(os.path.join(args.name, args.name + '_desc_parameters.pt')))
 
 # 6 is input dim because we have 3 for vertex positions and 3 for vertex colors
-mesh_encoder = MeshEncoder(6, args.joint_embedding_dim).to(device)
+mesh_encoder = AdvancedMeshEncoder(6, args.joint_embedding_dim).to(device) if args.advanced else MeshEncoder(6, args.joint_embedding_dim, opt=args.gnn).to(device)
+mesh_encoder.load_state_dict(torch.load(os.path.join(args.name, args.name + '_mesh_parameters.pt')))
 
 contrastive_loss = ContrastiveLoss().to(device)
+contrastive_loss.load_state_dict(torch.load(os.path.join(args.name, args.name + "_loss_parameters.pt")))
 
 def split_inputs(model_input, chunk_size):
 	return model_input
@@ -107,7 +114,6 @@ for epoch in range(args.epoch):
 			torch.save(losses, os.path.join(args.name, args.name + "_loss.pt"))
 
 			#print(torch.cuda.memory_summary())
-
 
 			i_batch += 1
 			batch = []
